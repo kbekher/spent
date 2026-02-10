@@ -1,2 +1,2 @@
-# spent
+# Spent
 Expense Tracker App
