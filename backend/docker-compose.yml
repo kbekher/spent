@@ -1,0 +1,46 @@
+services:
+  mongodb:
+    image: mongo:8.0
+    container_name: spent-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+      MONGO_INITDB_DATABASE: spent
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - spent-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spent-backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD:-changeme}@mongodb:27017/spent?authSource=admin
+      - PORT=3000
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
+    networks:
+      - spent-network
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  spent-network:
+    driver: bridge

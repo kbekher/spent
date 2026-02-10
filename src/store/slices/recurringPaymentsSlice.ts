@@ -1,0 +1,144 @@
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { RecurringPayment } from '../../types';
+import * as api from '../../services/api';
+
+interface RecurringPaymentsState {
+  items: RecurringPayment[];
+  loading: boolean;
+  error: string | null;
+}
+
+const initialState: RecurringPaymentsState = {
+  items: [],
+  loading: false,
+  error: null,
+};
+
+export const fetchRecurringPayments = createAsyncThunk(
+  'recurringPayments/fetchAll',
+  async (userId: string) => {
+    return await api.getRecurringPayments(userId);
+  }
+);
+
+export const addRecurringPayment = createAsyncThunk(
+  'recurringPayments/add',
+  async ({
+    userId,
+    name,
+    amount,
+    categoryId,
+    dayOfMonth,
+    frequency,
+    startMonth,
+    excludedMonths,
+  }: {
+    userId: string;
+    name: string;
+    amount: number;
+    categoryId: string;
+    dayOfMonth: number;
+    frequency?: 'monthly' | 'quarterly' | 'yearly';
+    startMonth?: number;
+    excludedMonths?: string[];
+  }) => {
+    return await api.createRecurringPayment(
+      userId,
+      name,
+      amount,
+      categoryId,
+      dayOfMonth,
+      frequency,
+      startMonth,
+      excludedMonths
+    );
+  }
+);
+
+export const editRecurringPayment = createAsyncThunk(
+  'recurringPayments/edit',
+  async ({
+    id,
+    name,
+    amount,
+    categoryId,
+    dayOfMonth,
+    frequency,
+    startMonth,
+    excludedMonths,
+    isActive,
+  }: {
+    id: string;
+    name: string;
+    amount: number;
+    categoryId: string;
+    dayOfMonth: number;
+    frequency: 'monthly' | 'quarterly' | 'yearly';
+    startMonth?: number;
+    excludedMonths: string[];
+    isActive: boolean;
+  }) => {
+    return await api.updateRecurringPayment(
+      id,
+      name,
+      amount,
+      categoryId,
+      dayOfMonth,
+      frequency,
+      startMonth,
+      excludedMonths,
+      isActive
+    );
+  }
+);
+
+export const removeRecurringPayment = createAsyncThunk(
+  'recurringPayments/remove',
+  async (id: string) => {
+    await api.deleteRecurringPayment(id);
+    return id;
+  }
+);
+
+const recurringPaymentsSlice = createSlice({
+  name: 'recurringPayments',
+  initialState,
+  reducers: {
+    clearRecurringPayments: (state) => {
+      state.items = [];
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Fetch
+      .addCase(fetchRecurringPayments.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchRecurringPayments.fulfilled, (state, action) => {
+        state.loading = false;
+        state.items = action.payload;
+      })
+      .addCase(fetchRecurringPayments.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch recurring payments';
+      })
+      // Add
+      .addCase(addRecurringPayment.fulfilled, (state, action) => {
+        state.items.unshift(action.payload);
+      })
+      // Edit
+      .addCase(editRecurringPayment.fulfilled, (state, action) => {
+        const index = state.items.findIndex((item) => item._id === action.payload._id);
+        if (index !== -1) {
+          state.items[index] = action.payload;
+        }
+      })
+      // Remove
+      .addCase(removeRecurringPayment.fulfilled, (state, action) => {
+        state.items = state.items.filter((item) => item._id !== action.payload);
+      });
+  },
+});
+
+export const { clearRecurringPayments } = recurringPaymentsSlice.actions;
+export default recurringPaymentsSlice.reducer;
