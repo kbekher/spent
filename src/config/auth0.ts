@@ -8,8 +8,17 @@ export const auth0Config = {
 };
 
 // API Configuration
+// Choose the right baseURL for your setup:
 export const apiConfig = {
   baseURL: __DEV__ 
-    ? 'http://localhost:3000/api' 
+    // Physical device (use your computer's IP)
+    ? 'http://192.168.2.198:3001/api'
+    
+    // iOS Simulator (uncomment if using iOS simulator)
+    // ? 'http://localhost:3001/api'
+    
+    // Android Emulator (uncomment if using Android emulator)
+    // ? 'http://10.0.2.2:3001/api'
+    
     : 'https://your-production-api.com/api',
 };

@@ -4,6 +4,48 @@ Node.js + Express + MongoDB + Auth0 backend for the Spent expense tracker mobile
 
 ## Quick Start
 
+# 1. Stop and clean everything (if needed)
+```bash
+cd backend
+docker-compose down -v
+```
+# 2. Start everything
+```bash
+docker-compose up -d
+```
+# 3. Check status
+```bash
+docker ps
+```
+# 4. Test the API
+```bash
+curl http://localhost:3001/health
+```
+
+---------------------------
+
+## 🎯 Quick Reference
+
+#View logs:
+```bash
+docker-compose logs -f backenddocker-compose logs -f mongodb
+```
+# Stop everything:
+```bash
+docker-compose down
+```
+# Restart backend only:
+```bash
+docker-compose restart backend
+```
+# Rebuild after code changes:
+```bash
+docker-compose build backenddocker-compose up -d
+```
+# Your API is live at: http://localhost:3001 🚀
+
+
+
 ### 1. Install Dependencies
 ```bash
 npm install
