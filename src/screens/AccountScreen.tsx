@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutUser } from '../store/slices/authSlice';
 import { Picker } from '@react-native-picker/picker';
@@ -72,8 +73,9 @@ export default function AccountScreen() {
   };
 
   return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
     <ScrollView
-      style={styles.container}
+      style={styles.scrollView}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
     >
@@ -96,7 +98,7 @@ export default function AccountScreen() {
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Your name"
-              placeholderTextColor="#94a3b8"
+              placeholderTextColor="rgba(255, 255, 255, 0.3)"
             />
           </View>
 
@@ -144,46 +146,55 @@ export default function AccountScreen() {
         <Text style={styles.logoutButtonText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
+    width: '100%',
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 24,
+    width: '100%',
   },
   formCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 20,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
     marginBottom: 16,
+    width: '100%',
+    maxWidth: '100%',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3b82f6',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ffffff',
     marginRight: 8,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
+    color: '#ffffff',
     letterSpacing: 0.5,
     flex: 1,
   },
@@ -206,51 +217,57 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: '500',
+    color: '#ffffff',
+    opacity: 0.9,
+    letterSpacing: 0.5,
   },
   textInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 16,
-    color: '#1e293b',
+    color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   pickerContainer: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   picker: {
     height: 50,
   },
   readOnlyField: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   readOnlyText: {
     fontSize: 16,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   saveButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: '#8b5cf6',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#3b82f6',
+    shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 4,
   },
   saveButtonDisabled: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: 'rgba(139, 92, 246, 0.5)',
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -260,7 +277,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

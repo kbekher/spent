@@ -3,11 +3,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { Text, View, ActivityIndicator, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, View, ActivityIndicator, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useEffect } from 'react';
-import { fetchCategories } from '../store/slices/categoriesSlice';
+import { fetchCategories, addCategory } from '../store/slices/categoriesSlice';
 import { fetchExpenses } from '../store/slices/expensesSlice';
 import { fetchRecurringPayments } from '../store/slices/recurringPaymentsSlice';
+import { logoutUser } from '../store/slices/authSlice';
+import { Ionicons } from '@expo/vector-icons';
 
 // Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -18,77 +20,179 @@ import RecurringPaymentsScreen from '../screens/RecurringPaymentsScreen';
 import AccountScreen from '../screens/AccountScreen';
 import RecentExpensesScreen from '../screens/RecentExpensesScreen';
 
-const Stack = createNativeStackNavigator();
+// Header button component for circular icons
+function HeaderIconButton({ icon, onPress, style }: { icon: keyof typeof Ionicons.glyphMap; onPress: () => void; style?: any }) {
+  return (
+    <TouchableOpacity
+      style={[styles.headerButton, style]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <Ionicons name={icon} size={24} color="#000000" />
+    </TouchableOpacity>
+  );
+}
+
+// Navigation types
+type AppStackParamList = {
+  Main: undefined;
+  Account: undefined;
+  RecentExpenses: {
+    year: number;
+    month: number;
+    viewMode: 'month' | 'year';
+  };
+};
+
+type RootStackParamList = {
+  Login: undefined;
+  App: undefined;
+};
+
+const Stack = createNativeStackNavigator<AppStackParamList>();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator();
 
-function MainTabs() {
+function MainTabs({ navigation }: any) {
+  const dispatch = useAppDispatch();
+
+  const handleAccountPress = () => {
+    navigation.navigate('Account');
+  };
+
+  const handleLogoutPress = () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: () => {
+          dispatch(logoutUser());
+        },
+      },
+    ]);
+  };
+
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#3b82f6',
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarActiveTintColor: '#000000',
+        tabBarInactiveTintColor: 'rgba(0, 0, 0, 0.4)',
         tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopWidth: 1,
-          borderTopColor: '#f1f5f9',
-          paddingBottom: 8,
-          paddingTop: 8,
-          height: 60,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          paddingBottom: 12,
+          paddingTop: 12,
+          height: 84,
+          position: 'absolute',
         },
+        tabBarShowLabel: false,
         headerStyle: {
           backgroundColor: '#ffffff',
         },
         headerTitleStyle: {
           fontWeight: 'bold',
           fontSize: 18,
+          color: '#000000',
         },
+        headerTintColor: '#000000',
+        headerLeft: () => <HeaderIconButton icon="person-circle-outline" onPress={handleAccountPress} style={{ marginLeft: 12 }} />,
       }}
     >
       <Tab.Screen
         name="Overview"
         component={OverviewScreen}
         options={{
-          tabBarLabel: 'Overview',
-          tabBarIcon: ({ color }) => <TabIcon icon="📊" color={color} />,
-          title: '💰 Spent',
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
+              <Ionicons name="home" size={24} color={focused ? '#000000' : '#ffffff'} />
+            </View>
+          ),
+          title: 'Spent',
+          headerRight: () => <HeaderIconButton icon="log-out-outline" onPress={handleLogoutPress} style={{ marginRight: 12 }} />,
+        }}
+      />
+      <Tab.Screen
+        name="AddExpense"
+        component={AddExpenseScreen}
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabButton, styles.addButton, focused && styles.tabButtonActive]}>
+              <Ionicons name="add" size={28} color={focused ? '#000000' : '#ffffff'} />
+            </View>
+          ),
+          title: 'Add Expense',
         }}
       />
       <Tab.Screen
         name="Categories"
         component={CategoriesScreen}
+        listeners={({ navigation }) => ({
+          focus: () => {
+            navigation.setOptions({
+              headerRight: () => (
+                <HeaderIconButton 
+                  icon="add-outline" 
+                  onPress={() => {
+                    const currentRoute = navigation.getState().routes[navigation.getState().index];
+                    if (currentRoute.params && 'toggleView' in currentRoute.params) {
+                      (currentRoute.params as any).toggleView();
+                    }
+                  }} 
+                  style={{ marginRight: 12 }} 
+                />
+              ),
+            });
+          },
+        })}
         options={{
-          tabBarLabel: 'Categories',
-          tabBarIcon: ({ color }) => <TabIcon icon="🏷️" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
+              <Ionicons name="layers" size={24} color={focused ? '#000000' : '#ffffff'} />
+            </View>
+          ),
+          title: 'Categories',
         }}
       />
       <Tab.Screen
         name="Recurring"
         component={RecurringPaymentsScreen}
+        listeners={({ navigation }) => ({
+          focus: () => {
+            navigation.setOptions({
+              headerRight: () => (
+                <HeaderIconButton 
+                  icon="add-outline" 
+                  onPress={() => {
+                    const currentRoute = navigation.getState().routes[navigation.getState().index];
+                    if (currentRoute.params && 'toggleView' in currentRoute.params) {
+                      (currentRoute.params as any).toggleView();
+                    }
+                  }} 
+                  style={{ marginRight: 12 }} 
+                />
+              ),
+            });
+          },
+        })}
         options={{
-          tabBarLabel: 'Recurring',
-          tabBarIcon: ({ color }) => <TabIcon icon="🔄" color={color} />,
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
+              <Ionicons name="repeat" size={24} color={focused ? '#000000' : '#ffffff'} />
+            </View>
+          ),
           title: 'Recurring Payments',
-        }}
-      />
-      <Tab.Screen
-        name="Account"
-        component={AccountScreen}
-        options={{
-          tabBarLabel: 'Account',
-          tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} />,
         }}
       />
     </Tab.Navigator>
   );
 }
 
-function TabIcon({ icon, color }: { icon: string; color: string }) {
-  return <Text style={{ fontSize: 24, color }}>{icon}</Text>;
-}
 
 function AppContent() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+  const { items: categories } = useAppSelector((state) => state.categories);
 
   // Load initial data when user is authenticated
   useEffect(() => {
@@ -99,6 +203,34 @@ function AppContent() {
     }
   }, [user?._id, dispatch]);
 
+  // Create default categories if none exist
+  useEffect(() => {
+    const createDefaultCategories = async () => {
+      if (user?._id && categories.length === 0) {
+        const defaultCategories = [
+          { name: 'Groceries', color: 'rgba(76, 175, 80, 1)' },
+          { name: 'Transport', color: 'rgba(51, 119, 255, 1)' },
+          { name: 'Restaurant', color: 'rgba(247, 75, 0, 1)' },
+          { name: 'Entertainment', color: 'rgba(156, 39, 176, 1)' },
+          { name: 'Shopping', color: 'rgba(233, 30, 99, 1)' },
+          { name: 'Health', color: 'rgba(0, 188, 212, 1)' },
+          { name: 'Bills', color: 'rgba(255, 152, 0, 1)' },
+          { name: 'Other', color: 'rgba(189, 253, 0, 1)' },
+        ];
+
+        for (const category of defaultCategories) {
+          await dispatch(addCategory({
+            userId: user._id,
+            name: category.name,
+            color: category.color,
+          }));
+        }
+      }
+    };
+
+    createDefaultCategories();
+  }, [user?._id, categories.length, dispatch]);
+
   return (
     <Stack.Navigator>
       <Stack.Screen
@@ -107,12 +239,18 @@ function AppContent() {
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="AddExpense"
-        component={AddExpenseScreen}
+        name="Account"
+        component={AccountScreen}
         options={{
-          title: 'Add Expense',
+          title: 'Account Settings',
           headerBackTitle: 'Back',
-          presentation: 'modal',
+          headerStyle: {
+            backgroundColor: '#ffffff',
+          },
+          headerTintColor: '#000000',
+          headerTitleStyle: {
+            color: '#000000',
+          },
         }}
       />
       <Stack.Screen
@@ -121,6 +259,13 @@ function AppContent() {
         options={{
           title: 'Recent Expenses',
           headerBackTitle: 'Back',
+          headerStyle: {
+            backgroundColor: '#ffffff',
+          },
+          headerTintColor: '#000000',
+          headerTitleStyle: {
+            color: '#000000',
+          },
         }}
       />
     </Stack.Navigator>
@@ -133,20 +278,20 @@ export default function AppNavigator() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
   }
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!user ? (
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <RootStack.Screen name="Login" component={LoginScreen} />
         ) : (
-          <Stack.Screen name="App" component={AppContent} />
+          <RootStack.Screen name="App" component={AppContent} />
         )}
-      </Stack.Navigator>
+      </RootStack.Navigator>
     </NavigationContainer>
   );
 }
@@ -156,6 +301,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
+  },
+  tabButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  addButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

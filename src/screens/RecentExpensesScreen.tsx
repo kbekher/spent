@@ -7,10 +7,10 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   removeExpense,
-  optimisticDeleteExpense,
 } from '../store/slices/expensesSlice';
 import { formatCurrency } from '../utils/currency';
 
@@ -144,7 +144,7 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          dispatch(optimisticDeleteExpense(id));
+          // Optimistic delete removed - using direct delete
 
           try {
             await dispatch(removeExpense(id)).unwrap();
@@ -165,7 +165,7 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Header with period info */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>
@@ -283,45 +283,40 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
               </View>
             );
           })}
-          <View style={{ height: 100 }} />
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   header: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(38, 37, 44, 1)',
     paddingVertical: 16,
     paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#ffffff',
     textAlign: 'center',
   },
   filterTabs: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(38, 37, 44, 1)',
     padding: 16,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
   },
   filterTab: {
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
   },
   filterTabActive: {
@@ -330,7 +325,7 @@ const styles = StyleSheet.create({
   filterTabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   filterTabTextActive: {
     color: '#ffffff',
@@ -340,7 +335,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   expenseItem: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(38, 37, 44, 1)',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -371,7 +366,7 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#ffffff',
   },
   recurringBadge: {
     marginLeft: 6,
@@ -389,7 +384,7 @@ const styles = StyleSheet.create({
   },
   expenseDescription: {
     fontSize: 12,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   expenseRight: {
     alignItems: 'flex-end',
@@ -397,12 +392,12 @@ const styles = StyleSheet.create({
   },
   expenseDate: {
     fontSize: 12,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   expenseAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1e293b',
+    color: '#ffffff',
   },
   deleteButton: {
     position: 'absolute',
@@ -426,7 +421,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
   },
 });

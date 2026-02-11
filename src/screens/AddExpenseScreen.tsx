@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   addExpense,
@@ -17,6 +18,7 @@ import {
   type Expense,
 } from '../store/slices/expensesSlice';
 import { Picker } from '@react-native-picker/picker';
+import { Ionicons } from '@expo/vector-icons';
 
 interface AddExpenseScreenProps {
   navigation: any;
@@ -41,11 +43,22 @@ export default function AddExpenseScreen({ navigation }: AddExpenseScreenProps) 
     }
   }, [categories, categoryId]);
 
-  const handleAmountChange = (value: string) => {
-    // Allow only numbers and one decimal separator (period or comma)
-    if (value === '' || /^\d*[.,]?\d*$/.test(value)) {
-      setAmount(value);
-    }
+  const handleNumberPress = (num: string) => {
+    // Prevent multiple decimal points
+    if (num === '.' && amount.includes('.')) return;
+    
+    // Limit to 2 decimal places
+    if (amount.includes('.') && amount.split('.')[1]?.length >= 2) return;
+    
+    setAmount(amount + num);
+  };
+
+  const handleBackspace = () => {
+    setAmount(amount.slice(0, -1));
+  };
+
+  const handleClear = () => {
+    setAmount('');
   };
 
   const handleSubmit = async () => {
@@ -54,9 +67,7 @@ export default function AddExpenseScreen({ navigation }: AddExpenseScreenProps) 
       return;
     }
 
-    // Convert comma to period for parsing
-    const normalizedAmount = amount.replace(',', '.');
-    const amountNum = parseFloat(normalizedAmount);
+    const amountNum = parseFloat(amount);
     if (!amountNum || amountNum <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
       return;
@@ -136,221 +147,272 @@ export default function AddExpenseScreen({ navigation }: AddExpenseScreenProps) 
   const selectedCategory = categories.find((c) => c._id === categoryId);
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.formCard}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>Add Expense</Text>
-          {showDone && (
-            <View style={styles.doneIndicator}>
-              <Text style={styles.doneText}>Done ✓</Text>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+      >
+        {/* Category Selector */}
+        <View style={styles.categorySection}>
+          <Text style={styles.sectionLabel}>Category</Text>
+          <View
+            style={[
+              styles.pickerContainer,
+              selectedCategory && { borderColor: selectedCategory.color },
+            ]}
+          >
+            <Picker
+              selectedValue={categoryId}
+              onValueChange={(value) => setCategoryId(value)}
+              style={styles.picker}
+            >
+              {categories.map((cat) => (
+                <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
+              ))}
+            </Picker>
+          </View>
+          {selectedCategory && (
+            <View style={styles.categoryPreview}>
+              <View
+                style={[
+                  styles.categoryDot,
+                  { backgroundColor: selectedCategory.color },
+                ]}
+              />
+              <Text
+                style={[styles.categoryName, { color: selectedCategory.color }]}
+              >
+                {selectedCategory.name}
+              </Text>
             </View>
           )}
         </View>
 
-        <View style={styles.form}>
-          {/* Category Picker */}
-          <View style={styles.formField}>
-            <Text style={styles.label}>Category</Text>
-            <View
-              style={[
-                styles.pickerContainer,
-                selectedCategory && { borderColor: selectedCategory.color },
-              ]}
-            >
-              <Picker
-                selectedValue={categoryId}
-                onValueChange={(value) => setCategoryId(value)}
-                style={styles.picker}
-              >
-                {categories.map((cat) => (
-                  <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
-                ))}
-              </Picker>
-            </View>
-            {selectedCategory && (
-              <View style={styles.categoryPreview}>
-                <View
-                  style={[
-                    styles.categoryDot,
-                    { backgroundColor: selectedCategory.color },
-                  ]}
-                />
-                <Text
-                  style={[styles.categoryName, { color: selectedCategory.color }]}
-                >
-                  {selectedCategory.name}
-                </Text>
-              </View>
-            )}
+
+
+        {/* Description Input */}
+        <View style={styles.descriptionSection}>
+          <TextInput
+            style={styles.descriptionInput}
+            value={expenseName}
+            onChangeText={setExpenseName}
+            placeholder="Add description (optional)"
+            placeholderTextColor="rgba(255, 255, 255, 0.3)"
+          />
+        </View>
+
+        {/* Numeric Keypad */}
+        <View style={styles.keypad}>
+          <View style={styles.keypadRow}>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('1')}>
+              <Text style={styles.keyText}>1</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('2')}>
+              <Text style={styles.keyText}>2</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('3')}>
+              <Text style={styles.keyText}>3</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Expense Name */}
-          <View style={styles.formField}>
-            <Text style={styles.label}>Expense Name (Optional)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={expenseName}
-              onChangeText={setExpenseName}
-              placeholder="e.g., Groceries, Coffee"
-              placeholderTextColor="#94a3b8"
-            />
+          <View style={styles.keypadRow}>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('4')}>
+              <Text style={styles.keyText}>4</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('5')}>
+              <Text style={styles.keyText}>5</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('6')}>
+              <Text style={styles.keyText}>6</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Amount */}
-          <View style={styles.formField}>
-            <Text style={styles.label}>Amount</Text>
-            <TextInput
-              style={styles.textInput}
-              value={amount}
-              onChangeText={handleAmountChange}
-              placeholder="0.00"
-              placeholderTextColor="#94a3b8"
-              keyboardType="decimal-pad"
-              autoFocus
-            />
+          <View style={styles.keypadRow}>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('7')}>
+              <Text style={styles.keyText}>7</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('8')}>
+              <Text style={styles.keyText}>8</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('9')}>
+              <Text style={styles.keyText}>9</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.keypadRow}>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('.')}>
+              <Text style={styles.keyText}>.</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('0')}>
+              <Text style={styles.keyText}>0</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={handleBackspace}>
+              <Ionicons name="backspace-outline" size={28} color="#ffffff" />
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
 
-      {/* Submit Button */}
-      <TouchableOpacity
-        style={[
-          styles.submitBtn,
-          (loading || !categoryId || !amount) && styles.submitBtnDisabled,
-        ]}
-        onPress={handleSubmit}
-        disabled={loading || !categoryId || !amount}
-      >
-        {loading ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.submitBtnText}>Add Expense</Text>
-        )}
-      </TouchableOpacity>
-    </ScrollView>
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[
+            styles.submitBtn,
+            (loading || !categoryId || !amount || parseFloat(amount) <= 0) && styles.submitBtnDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={loading || !categoryId || !amount || parseFloat(amount) <= 0}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitBtnText}>Add Expense</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
+    width: '100%',
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
   },
   contentContainer: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     paddingBottom: 100,
+    width: '100%',
   },
-  formCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 16,
+  categorySection: {
+    marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  sectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3b82f6',
-    marginRight: 8,
-  },
-  sectionTitle: {
+  sectionLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  doneIndicator: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  doneText: {
+    fontWeight: '500',
     color: '#ffffff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  form: {
-    gap: 20,
-  },
-  formField: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
+    marginBottom: 8,
+    opacity: 0.8,
   },
   pickerContainer: {
     borderWidth: 2,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
   },
   picker: {
     height: 50,
+    color: '#ffffff',
   },
   categoryPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 12,
   },
   categoryDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 8,
   },
   categoryName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
-  textInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+  amountDisplay: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    marginBottom: 16,
+    position: 'relative',
+  },
+  currencySymbol: {
+    fontSize: 20,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  amountText: {
+    fontSize: 56,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  doneIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#10b981',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  descriptionSection: {
+    marginBottom: 24,
+  },
+  descriptionInput: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    color: '#1e293b',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  keypad: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  keypadRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  key: {
+    flex: 1,
+    aspectRatio: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  keyText: {
+    fontSize: 32,
+    fontWeight: '600',
+    color: '#ffffff',
   },
   submitBtn: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 16,
-    borderRadius: 12,
+    backgroundColor: '#8b5cf6',
+    paddingVertical: 18,
+    borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#3b82f6',
+    shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
     elevation: 4,
   },
   submitBtnDisabled: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: 'rgba(139, 92, 246, 0.3)',
     shadowOpacity: 0,
     elevation: 0,
   },
   submitBtnText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   emptyState: {
     flex: 1,
@@ -360,7 +422,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
   },
 });

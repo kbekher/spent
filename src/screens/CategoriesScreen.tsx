@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   fetchCategories,
@@ -35,6 +37,25 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [categoryName, setCategoryName] = useState('');
   const [selectedColor, setSelectedColor] = useState(CATEGORY_COLORS[0]);
+
+  // Set up navigation params to allow header button to toggle view
+  useFocusEffect(
+    React.useCallback(() => {
+      navigation.setParams({
+        toggleView: () => {
+          if (view === 'list') {
+            setView('form');
+          } else {
+            // Cancel form and go back to list
+            setView('list');
+            setEditingId(null);
+            setCategoryName('');
+            setSelectedColor(CATEGORY_COLORS[0]);
+          }
+        },
+      });
+    }, [view, navigation])
+  );
   const [showDone, setShowDone] = useState(false);
 
   // Reset form when view changes
@@ -177,8 +198,9 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
   // Form View
   if (view === 'form') {
     return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView
-        style={styles.container}
+        style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
@@ -203,7 +225,7 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
                 value={categoryName}
                 onChangeText={setCategoryName}
                 placeholder="e.g., Food, Transport"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                 autoFocus
               />
             </View>
@@ -251,12 +273,13 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
           </TouchableOpacity>
         </View>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   // List View
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {categories.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
@@ -295,56 +318,55 @@ export default function CategoriesScreen({ navigation }: CategoriesScreenProps) 
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
-
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => setView('form')}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
+    width: '100%',
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 24,
+    width: '100%',
   },
   formCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 20,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
     marginBottom: 16,
+    width: '100%',
+    maxWidth: '100%',
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   sectionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3b82f6',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ffffff',
     marginRight: 8,
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
+    color: '#ffffff',
     letterSpacing: 0.5,
     flex: 1,
   },
@@ -367,17 +389,20 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: '500',
+    color: '#ffffff',
+    opacity: 0.9,
+    letterSpacing: 0.5,
   },
   textInput: {
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 16,
-    color: '#1e293b',
+    color: '#ffffff',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
   colorPicker: {
     flexDirection: 'row',
@@ -392,7 +417,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   colorOptionSelected: {
-    borderColor: '#1e293b',
+    borderColor: '#ffffff',
     borderWidth: 3,
   },
   buttonRow: {
@@ -406,19 +431,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   cancelButtonText: {
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.6)',
     fontSize: 16,
     fontWeight: '600',
   },
   submitButton: {
-    backgroundColor: '#3b82f6',
-    shadowColor: '#3b82f6',
+    backgroundColor: '#8b5cf6',
+    shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: 16,
     elevation: 4,
   },
   submitButtonText: {
@@ -428,21 +453,27 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    paddingBottom: 24,
   },
   categoryItem: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    width: '100%',
+    maxWidth: '100%',
   },
   categoryInfo: {
     flexDirection: 'row',
@@ -450,14 +481,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    marginRight: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    marginRight: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   categoryName: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: '#ffffff',
+    flexShrink: 1,
   },
   categoryActions: {
     flexDirection: 'row',
@@ -467,7 +505,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -482,30 +520,7 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabText: {
-    fontSize: 28,
-    color: '#ffffff',
-    fontWeight: '300',
   },
 });

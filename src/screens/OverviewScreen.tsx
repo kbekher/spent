@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppSelector } from '../store/hooks';
 import { formatCurrency } from '../utils/currency';
 
@@ -162,14 +163,18 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
   if (expensesLoading && expenses.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-    <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <ScrollView 
+      style={styles.scrollView} 
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Header Card */}
       <View style={styles.headerCard}>
         <View style={styles.titleSection}>
@@ -178,13 +183,14 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
         </View>
 
         <View style={styles.greetingSection}>
-          <View>
-            <Text style={styles.greeting}>Hello {displayName}!</Text>
-            <Text style={styles.recurringCount}>
-              {getRecurringCount()} recurring payment
-              {getRecurringCount() !== 1 ? 's' : ''} this month
-            </Text>
-          </View>
+          <Text style={styles.greeting}>Hello {displayName}!</Text>
+        </View>
+
+        <View style={styles.recurringSection}>
+          <Text style={styles.recurringCount}>
+            {getRecurringCount()} recurring payment
+            {getRecurringCount() !== 1 ? 's' : ''} this month
+          </Text>
 
           <View style={styles.viewToggle}>
             <TouchableOpacity
@@ -324,46 +330,46 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
         </View>
       )}
 
-      <View style={{ height: 100 }} />
     </ScrollView>
-
-      {/* Floating Action Button */}
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate('AddExpense')}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
+    width: '100%',
   },
   scrollView: {
     flex: 1,
+    width: '100%',
+  },
+  scrollContent: {
+    paddingBottom: 24,
+    paddingHorizontal: 0,
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#000000',
   },
   headerCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    margin: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    padding: 16,
+    paddingTop: 24,
+    marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 4,
+    width: '100%',
+    maxWidth: '100%',
   },
   titleSection: {
     flexDirection: 'row',
@@ -371,150 +377,165 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3b82f6',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#000000',
     marginRight: 8,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#64748b',
-    textTransform: 'uppercase',
+    color: '#000000',
     letterSpacing: 0.5,
   },
   greetingSection: {
+    marginBottom: 16,
+  },
+  greeting: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 34,
+  },
+  recurringSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-  },
-  greeting: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 4,
+    gap: 12,
+    width: '100%',
+    maxWidth: '100%',
   },
   recurringCount: {
-    fontSize: 14,
-    color: '#64748b',
+    fontSize: 16,
+    color: '#000000',
+    fontWeight: '600',
+    flex: 1,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   viewToggle: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
-    padding: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    borderRadius: 24,
+    width: 86,
+    flexShrink: 0,
   },
   toggleBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
+    width: 43,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   toggleBtnActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#000000',
   },
   toggleBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: 'rgba(0, 0, 0, 0.6)',
   },
   toggleBtnTextActive: {
-    color: '#1e293b',
+    color: '#ffffff',
   },
   dateSelectorRow: {
     flexDirection: 'row',
     gap: 8,
+    flexWrap: 'wrap',
+    width: '100%',
   },
   dateBtn: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
-    paddingVertical: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 48,
     alignItems: 'center',
   },
   dateBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000000',
   },
   statsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 16,
+    flexDirection: 'column',
+    paddingHorizontal: 8,
+    gap: 6,
+    marginBottom: 8,
+    width: '100%',
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 30,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+    alignSelf: 'stretch',
   },
   statCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   statDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#3b82f6',
-    marginRight: 6,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ffffff',
+    marginRight: 8,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
+    opacity: 0.9,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
+    fontSize: 28,
+    fontWeight: '600',
+    color: '#ffffff',
+    flexShrink: 1,
   },
   categoryCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 16,
-    marginBottom: 16,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 24,
+    padding: 16,
+    marginHorizontal: 8,
+    marginBottom: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+    alignSelf: 'stretch',
   },
   categoryHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 24,
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1e293b',
+    fontWeight: '600',
+    color: '#ffffff',
   },
   categoryCount: {
     fontSize: 14,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   categoryList: {
     gap: 16,
   },
   categoryItem: {
     gap: 8,
+    marginBottom: 12,
   },
   categoryInfo: {
     flexDirection: 'row',
@@ -527,32 +548,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginRight: 8,
   },
   categoryName: {
     fontSize: 14,
-    color: '#1e293b',
+    color: '#ffffff',
     fontWeight: '500',
+    flexShrink: 1,
   },
   categoryAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e293b',
+    color: '#ffffff',
+    flexShrink: 0,
   },
   categoryBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    width: '100%',
   },
   categoryBarBg: {
     flex: 1,
     height: 6,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 3,
     overflow: 'hidden',
+    minWidth: 0,
   },
   categoryBarFill: {
     height: '100%',
@@ -560,49 +585,27 @@ const styles = StyleSheet.create({
   },
   categoryPercentage: {
     fontSize: 12,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
     fontWeight: '500',
-    width: 40,
+    minWidth: 40,
     textAlign: 'right',
+    flexShrink: 0,
   },
   emptyState: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    borderRadius: 24,
     padding: 40,
-    marginHorizontal: 16,
+    marginHorizontal: 8,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
   },
   emptyStateText: {
     fontSize: 14,
-    color: '#64748b',
+    color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
-  },
-  fabContainer: {
-    position: 'absolute',
-    right: 16,
-    bottom: 80,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#3b82f6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#3b82f6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  fabText: {
-    fontSize: 28,
-    color: '#ffffff',
-    fontWeight: '300',
   },
 });
