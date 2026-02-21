@@ -41,7 +41,7 @@ app.use(
       }
       
       // Check if origin is in allowed list
-      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+      if (origin.startsWith('exp://') || allowedOrigins.some(allowed => origin.startsWith(allowed))) {
         return callback(null, true);
       }
       

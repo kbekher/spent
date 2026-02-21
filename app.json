@@ -13,14 +13,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.spent"
+      "bundleIdentifier": "com.bekher.spent"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.yourcompany.spent"
+      "package": "com.bekher.spent"
     },
     "web": {
       "favicon": "./assets/favicon.png"

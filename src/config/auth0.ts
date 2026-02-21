@@ -1,24 +1,23 @@
+import Constants from 'expo-constants';
+
 // Auth0 Configuration
 // Replace these with your Auth0 credentials
 
 export const auth0Config = {
-  domain: 'dev-rls1v1n003twbofq.us.auth0.com',
-  clientId: 't97SMg2eW4srJO94rxJ6JekyAvRziRgt',
+  domain: process.env.EXPO_PUBLIC_AUTH0_DOMAIN ?? '',
+  clientId: process.env.EXPO_PUBLIC_AUTH0_CLIENT_ID ?? '',
   audience: 'https://spent-api',
 };
 
+function getDevBaseURL(): string {
+  const hostUri = Constants.expoConfig?.hostUri ?? 'localhost:8081';
+  const host = hostUri.split(':')[0];
+  return `http://${host}:3000/api`;
+}
+
 // API Configuration
-// Choose the right baseURL for your setup:
 export const apiConfig = {
-  baseURL: __DEV__ 
-    // Physical device (use your computer's IP)
-    ? 'http://192.168.2.198:3001/api'
-    
-    // iOS Simulator (uncomment if using iOS simulator)
-    // ? 'http://localhost:3001/api'
-    
-    // Android Emulator (uncomment if using Android emulator)
-    // ? 'http://10.0.2.2:3001/api'
-    
-    : 'https://your-production-api.com/api',
+  baseURL: __DEV__
+    ? getDevBaseURL()
+    : process.env.EXPO_PUBLIC_API_URL ?? '',
 };
