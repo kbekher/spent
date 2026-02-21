@@ -273,12 +273,20 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
                 </View>
 
                 {!item.isRecurring && (
-                  <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={() => handleDelete(item._id, !!item.isRecurring)}
-                  >
-                    <Text style={styles.deleteButtonText}>🗑️</Text>
-                  </TouchableOpacity>
+                  <View style={styles.actionButtons}>
+                    <TouchableOpacity
+                      style={styles.editButton}
+                      onPress={() => navigation.navigate('EditExpense', { expenseId: item._id })}
+                    >
+                      <Text style={styles.actionButtonText}>✏️</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => handleDelete(item._id, !!item.isRecurring)}
+                    >
+                      <Text style={styles.actionButtonText}>🗑️</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             );
@@ -399,10 +407,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  deleteButton: {
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
     position: 'absolute',
     right: 12,
     bottom: 12,
+  },
+  editButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(139,92,246,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -410,7 +430,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteButtonText: {
+  actionButtonText: {
     fontSize: 14,
   },
   emptyState: {

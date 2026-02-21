@@ -1,5 +1,6 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Expense, ExpenseStats } from '../../types';
+export type { Expense };
 import * as api from '../../services/api';
 
 interface ExpensesState {
@@ -59,6 +60,25 @@ export const addExpense = createAsyncThunk(
   }
 );
 
+export const updateExpense = createAsyncThunk(
+  'expenses/update',
+  async ({
+    id,
+    amount,
+    categoryId,
+    description,
+    date,
+  }: {
+    id: string;
+    amount?: number;
+    categoryId?: string;
+    description?: string;
+    date?: Date;
+  }) => {
+    return await api.updateExpense(id, { amount, categoryId, description, date });
+  }
+);
+
 export const removeExpense = createAsyncThunk(
   'expenses/remove',
   async (id: string) => {
@@ -74,6 +94,19 @@ const expensesSlice = createSlice({
     clearExpenses: (state) => {
       state.items = [];
       state.stats = null;
+    },
+    optimisticAddExpense: (state, action: PayloadAction<Expense>) => {
+      state.items.unshift(action.payload);
+    },
+    optimisticDeleteExpense: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter((exp) => exp._id !== action.payload);
+    },
+    optimisticUpdateExpense: (state, action: PayloadAction<Partial<Expense> & { _id: string }>) => {
+      const idx = state.items.findIndex((exp) => exp._id === action.payload._id);
+      if (idx !== -1) state.items[idx] = { ...state.items[idx], ...action.payload };
+    },
+    syncCategoryUpdate: (_state, _action: PayloadAction<{ _id: string; name: string; color: string }>) => {
+      // Expenses reference categoryId by string; no local sync needed
     },
   },
   extraReducers: (builder) => {
@@ -94,9 +127,19 @@ const expensesSlice = createSlice({
       .addCase(fetchExpenseStats.fulfilled, (state, action) => {
         state.stats = action.payload;
       })
-      // Add expense
+      // Add expense — replace optimistic temp item if present, otherwise unshift
       .addCase(addExpense.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        const tempIndex = state.items.findIndex((exp) => exp._id.startsWith('temp-'));
+        if (tempIndex !== -1) {
+          state.items[tempIndex] = action.payload;
+        } else {
+          state.items.unshift(action.payload);
+        }
+      })
+      // Update expense
+      .addCase(updateExpense.fulfilled, (state, action) => {
+        const idx = state.items.findIndex((exp) => exp._id === action.payload._id);
+        if (idx !== -1) state.items[idx] = action.payload;
       })
       // Remove expense
       .addCase(removeExpense.fulfilled, (state, action) => {
@@ -105,5 +148,11 @@ const expensesSlice = createSlice({
   },
 });
 
-export const { clearExpenses } = expensesSlice.actions;
+export const {
+  clearExpenses,
+  optimisticAddExpense,
+  optimisticDeleteExpense,
+  optimisticUpdateExpense,
+  syncCategoryUpdate,
+} = expensesSlice.actions;
 export default expensesSlice.reducer;

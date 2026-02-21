@@ -17,9 +17,12 @@ import {
   removeRecurringPayment,
   fetchRecurringPayments,
 } from '../store/slices/recurringPaymentsSlice';
+import SkeletonBox from '../components/SkeletonBox';
+import ErrorState from '../components/ErrorState';
 import { RecurringPayment } from '../types';
 import { Picker } from '@react-native-picker/picker';
 import { formatCurrency } from '../utils/currency';
+import CategoryChipSelector from '../components/CategoryChipSelector';
 
 interface RecurringPaymentsScreenProps {
   navigation: any;
@@ -35,7 +38,7 @@ export default function RecurringPaymentsScreen({
 }: RecurringPaymentsScreenProps) {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { items: payments } = useAppSelector((state) => state.recurringPayments);
+  const { items: payments, loading: recurringLoading, error: recurringError } = useAppSelector((state) => state.recurringPayments);
   const { items: categories } = useAppSelector((state) => state.categories) as { items: Array<{ _id: string; name: string; color: string }> };
   const currency = user?.currency || 'EUR';
 
@@ -210,6 +213,29 @@ export default function RecurringPaymentsScreen({
     }
   };
 
+  if (recurringError && payments.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <ErrorState
+          message={recurringError}
+          onRetry={() => user?._id && dispatch(fetchRecurringPayments(user._id))}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  if (recurringLoading && payments.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom']}>
+        <View style={{ padding: 16, gap: 10 }}>
+          <SkeletonBox height={80} borderRadius={12} />
+          <SkeletonBox height={80} borderRadius={12} />
+          <SkeletonBox height={80} borderRadius={12} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (categories.length === 0) {
     return (
       <View style={styles.container}>
@@ -269,31 +295,35 @@ export default function RecurringPaymentsScreen({
 
             <View style={styles.formField}>
               <Text style={styles.label}>Category</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={categoryId}
-                  onValueChange={(value) => setCategoryId(value)}
-                  style={styles.picker}
-                >
-                  {categories.map((cat) => (
-                    <Picker.Item key={cat._id} label={cat.name} value={cat._id} />
-                  ))}
-                </Picker>
-              </View>
+              <CategoryChipSelector
+                categories={categories}
+                selectedId={categoryId}
+                onSelect={(id) => setCategoryId(id)}
+              />
             </View>
 
             <View style={styles.formField}>
               <Text style={styles.label}>Frequency</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={frequency}
-                  onValueChange={(value: any) => setFrequency(value)}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Once a month" value="monthly" />
-                  <Picker.Item label="Once per 3 months" value="quarterly" />
-                  <Picker.Item label="Once a year" value="yearly" />
-                </Picker>
+              <View style={styles.frequencyRow}>
+                {(['monthly', 'quarterly', 'yearly'] as const).map((freq) => (
+                  <TouchableOpacity
+                    key={freq}
+                    style={[
+                      styles.freqChip,
+                      frequency === freq && styles.freqChipActive,
+                    ]}
+                    onPress={() => setFrequency(freq)}
+                  >
+                    <Text
+                      style={[
+                        styles.freqChipText,
+                        frequency === freq && styles.freqChipTextActive,
+                      ]}
+                    >
+                      {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -494,6 +524,32 @@ const styles = StyleSheet.create({
   picker: {
     height: 50,
     color: '#ffffff',
+  },
+  frequencyRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  freqChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'transparent',
+  },
+  freqChipActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  freqChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  freqChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   buttonRow: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Category } from '../../types';
 import * as api from '../../services/api';
 
@@ -50,6 +50,16 @@ const categoriesSlice = createSlice({
     clearCategories: (state) => {
       state.items = [];
     },
+    optimisticAddCategory: (state, action: PayloadAction<Category>) => {
+      state.items.push(action.payload);
+    },
+    optimisticUpdateCategory: (state, action: PayloadAction<Category>) => {
+      const index = state.items.findIndex((cat) => cat._id === action.payload._id);
+      if (index !== -1) state.items[index] = action.payload;
+    },
+    optimisticDeleteCategory: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter((cat) => cat._id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -65,9 +75,14 @@ const categoriesSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch categories';
       })
-      // Add
+      // Add — replace optimistic temp item if present, otherwise push
       .addCase(addCategory.fulfilled, (state, action) => {
-        state.items.push(action.payload);
+        const tempIndex = state.items.findIndex((cat) => cat._id.startsWith('temp-'));
+        if (tempIndex !== -1) {
+          state.items[tempIndex] = action.payload;
+        } else {
+          state.items.push(action.payload);
+        }
       })
       // Edit
       .addCase(editCategory.fulfilled, (state, action) => {
@@ -83,5 +98,11 @@ const categoriesSlice = createSlice({
   },
 });
 
-export const { clearCategories } = categoriesSlice.actions;
+export const {
+  clearCategories,
+  optimisticAddCategory,
+  optimisticUpdateCategory,
+  optimisticDeleteCategory,
+} = categoriesSlice.actions;
+export { editCategory as updateCategory, removeCategory as deleteCategory };
 export default categoriesSlice.reducer;

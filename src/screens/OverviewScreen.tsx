@@ -16,13 +16,10 @@ interface OverviewScreenProps {
 }
 
 export default function OverviewScreen({ navigation }: OverviewScreenProps) {
-  const { user } = useAppSelector((state) => state.auth);
-  const { items: expenses, loading: expensesLoading } = useAppSelector(
-    (state) => state.expenses
-  );
-  const { items: recurringPayments } = useAppSelector(
-    (state) => state.recurringPayments
-  );
+  const { user } = useAppSelector(state => state.auth);
+  const { items: expenses, loading: expensesLoading, error: expensesError } = useAppSelector((state) => state.expenses);
+  const { items: categories } = useAppSelector((state) => state.categories);
+  const { items: recurringPayments } = useAppSelector(state => state.recurringPayments);
 
   const displayName = user?.displayName || user?.username || '';
   const currency = user?.currency || 'EUR';
@@ -31,58 +28,46 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [viewMode, setViewMode] = useState<'month' | 'year'>('month');
 
-  // Compute stats from Redux store data
-  const stats = useMemo(() => {
-    const startDate =
-      viewMode === 'month'
-        ? new Date(selectedYear, selectedMonth - 1, 1)
-        : new Date(selectedYear, 0, 1);
-    const endDate =
-      viewMode === 'month'
-        ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59)
-        : new Date(selectedYear, 11, 31, 23, 59, 59);
+  // // Compute stats from Redux store data
+  // const stats = useMemo(() => {
+  //   const startDate =
+  //     viewMode === 'month'
+  //       ? new Date(selectedYear, selectedMonth - 1, 1)
+  //       : new Date(selectedYear, 0, 1);
+  //   const endDate =
+  //     viewMode === 'month'
+  //       ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59)
+  //       : new Date(selectedYear, 11, 31, 23, 59, 59);
 
-    // Filter expenses by date range
-    const filteredExpenses = expenses.filter((exp) => {
-      const expDate = new Date(exp.date);
-      return expDate >= startDate && expDate <= endDate;
+  // Filter expenses for selected month
+  const monthExpenses = useMemo(() => {
+    const start = new Date(selectedYear, selectedMonth - 1, 1);
+    const end = new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
+    return expenses.filter((exp) => {
+      const d = new Date(exp.date);
+      return d >= start && d <= end;
     });
+  }, [expenses, selectedYear, selectedMonth]);
 
-    // Group by category
-    const categoryTotals: Record<
-      string,
-      { name: string; color: string; total: number }
-    > = {};
-    let total = 0;
+  const expenseTotal = useMemo(
+    () => monthExpenses.reduce((s, e) => s + e.amount, 0),
+    [monthExpenses]
+  );
 
-    filteredExpenses.forEach((expense) => {
-      const category =
-        typeof expense.categoryId === 'object'
-          ? expense.categoryId
-          : { name: 'Unknown', color: '#666', _id: '' };
-
-      if (category) {
-        const categoryName = category.name;
-        if (!categoryTotals[categoryName]) {
-          categoryTotals[categoryName] = {
-            name: categoryName,
-            color: category.color,
-            total: 0,
-          };
-        }
-        categoryTotals[categoryName].total += expense.amount;
-        total += expense.amount;
-      }
+  // Category breakdown
+  const byCategory = useMemo(() => {
+    const map: Record<string, { name: string; color: string; total: number }> = {};
+    monthExpenses.forEach((exp) => {
+      const cat =
+        typeof exp.categoryId === 'object'
+          ? (exp.categoryId as any)
+          : categories.find((c) => c._id === exp.categoryId) || { name: 'Unknown', color: '#888' };
+      const key = cat.name;
+      if (!map[key]) map[key] = { name: cat.name, color: cat.color, total: 0 };
+      map[key].total += exp.amount;
     });
-
-    return {
-      total,
-      byCategory: Object.values(categoryTotals),
-      expenses: filteredExpenses.sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-      ),
-    };
-  }, [expenses, selectedYear, selectedMonth, viewMode]);
+    return Object.values(map).sort((a, b) => b.total - a.total);
+  }, [monthExpenses, categories]);
 
   const getRecurringTotal = (year: number, month: number) => {
     const excludeMonthKey = `${year}-${String(month).padStart(2, '0')}`;
@@ -170,167 +155,155 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-    <ScrollView 
-      style={styles.scrollView} 
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header Card */}
-      <View style={styles.headerCard}>
-        <View style={styles.titleSection}>
-          <View style={styles.dot} />
-          <Text style={styles.title}>Overview</Text>
-        </View>
-
-        <View style={styles.greetingSection}>
-          <Text style={styles.greeting}>Hello {displayName}!</Text>
-        </View>
-
-        <View style={styles.recurringSection}>
-          <Text style={styles.recurringCount}>
-            {getRecurringCount()} recurring payment
-            {getRecurringCount() !== 1 ? 's' : ''} this month
-          </Text>
-
-          <View style={styles.viewToggle}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, viewMode === 'month' && styles.toggleBtnActive]}
-              onPress={() => setViewMode('month')}
-            >
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  viewMode === 'month' && styles.toggleBtnTextActive,
-                ]}
-              >
-                M
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleBtn, viewMode === 'year' && styles.toggleBtnActive]}
-              onPress={() => setViewMode('year')}
-            >
-              <Text
-                style={[
-                  styles.toggleBtnText,
-                  viewMode === 'year' && styles.toggleBtnTextActive,
-                ]}
-              >
-                Y
-              </Text>
-            </TouchableOpacity>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header Card */}
+        <View style={styles.headerCard}>
+          <View style={styles.titleSection}>
+            <View style={styles.dot} />
+            <Text style={styles.title}>Overview</Text>
           </View>
-        </View>
 
-        {/* Date Selectors - Simplified for now */}
-        <View style={styles.dateSelectorRow}>
-          {viewMode === 'month' ? (
-            <>
-              <TouchableOpacity style={styles.dateBtn}>
-                <Text style={styles.dateBtnText}>{getMonthName(selectedMonth)}</Text>
+          <View style={styles.greetingSection}>
+            <Text style={styles.greeting}>Hello {displayName}!</Text>
+          </View>
+
+          <View style={styles.recurringSection}>
+            <Text style={styles.recurringCount}>
+              {getRecurringCount()} recurring payment
+              {getRecurringCount() !== 1 ? 's' : ''} this month
+            </Text>
+
+            <View style={styles.viewToggle}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === 'month' && styles.toggleBtnActive]}
+                onPress={() => setViewMode('month')}
+              >
+                <Text
+                  style={[
+                    styles.toggleBtnText,
+                    viewMode === 'month' && styles.toggleBtnTextActive,
+                  ]}
+                >
+                  M
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.dateBtn}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === 'year' && styles.toggleBtnActive]}
+                onPress={() => setViewMode('year')}
+              >
+                <Text
+                  style={[
+                    styles.toggleBtnText,
+                    viewMode === 'year' && styles.toggleBtnTextActive,
+                  ]}
+                >
+                  Y
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Date Selectors - Simplified for now */}
+          <View style={styles.dateSelectorRow}>
+            {viewMode === 'month' ? (
+              <>
+                <TouchableOpacity style={styles.dateBtn}>
+                  <Text style={styles.dateBtnText}>{getMonthName(selectedMonth)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dateBtn}>
+                  <Text style={styles.dateBtnText}>{selectedYear}</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity style={[styles.dateBtn, { flex: 1 }]}>
                 <Text style={styles.dateBtnText}>{selectedYear}</Text>
               </TouchableOpacity>
-            </>
-          ) : (
-            <TouchableOpacity style={[styles.dateBtn, { flex: 1 }]}>
-              <Text style={styles.dateBtnText}>{selectedYear}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      {/* Stats Summary */}
-      <View style={styles.statsRow}>
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <View style={styles.statDot} />
-            <Text style={styles.statLabel}>Expenses</Text>
+            )}
           </View>
-          <Text style={styles.statValue}>{formatCurrency(stats.total, currency)}</Text>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <View style={styles.statDot} />
-            <Text style={styles.statLabel}>Recurring</Text>
+        {/* Stats Summary */}
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <View style={styles.statCardHeader}>
+              <View style={styles.statDot} />
+              <Text style={styles.statLabel}>Expenses</Text>
+            </View>
+            <Text style={styles.statValue}>{formatCurrency(expenseTotal, currency)}</Text>
           </View>
-          <Text style={styles.statValue}>{formatCurrency(recurringTotal, currency)}</Text>
+
+          <View style={styles.statCard}>
+            <View style={styles.statCardHeader}>
+              <View style={styles.statDot} />
+              <Text style={styles.statLabel}>Recurring</Text>
+            </View>
+            <Text style={styles.statValue}>{formatCurrency(recurringTotal, currency)}</Text>
+          </View>
+
+          <View style={styles.statCard}>
+            <View style={styles.statCardHeader}>
+              <View style={styles.statDot} />
+              <Text style={styles.statLabel}>Total</Text>
+            </View>
+            <Text style={styles.statValue}>
+              {formatCurrency(expenseTotal + recurringTotal, currency)}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <View style={styles.statDot} />
-            <Text style={styles.statLabel}>Total</Text>
-          </View>
-          <Text style={styles.statValue}>
-            {formatCurrency(stats.total + recurringTotal, currency)}
-          </Text>
-        </View>
-      </View>
+        {/* Category Breakdown */}
+        {byCategory.length > 0 && (
 
-      {/* Category Breakdown */}
-      {stats.byCategory.length > 0 && (
-        <TouchableOpacity
-          style={styles.categoryCard}
-          onPress={() =>
-            navigation.navigate('RecentExpenses', {
-              year: selectedYear,
-              month: selectedMonth,
-              viewMode,
-            })
-          }
-        >
-          <View style={styles.categoryHeader}>
-            <Text style={styles.categoryTitle}>By Category</Text>
-            <Text style={styles.categoryCount}>{stats.byCategory.length} Categories</Text>
-          </View>
-
-          <View style={styles.categoryList}>
-            {stats.byCategory.map((cat, index) => {
-              const percentage = stats.total > 0 ? (cat.total / stats.total) * 100 : 0;
-              return (
-                <View key={index} style={styles.categoryItem}>
-                  <View style={styles.categoryInfo}>
-                    <View style={styles.categoryLeft}>
-                      <View
-                        style={[styles.categoryDot, { backgroundColor: cat.color }]}
-                      />
-                      <Text style={styles.categoryName}>{cat.name}</Text>
+          <TouchableOpacity
+            style={styles.categoryCard}
+            onPress={() =>
+              navigation.navigate('RecentExpenses', {
+                year: selectedYear,
+                month: selectedMonth,
+                viewMode,
+              })
+            }
+          >
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>By Category</Text>
+              {byCategory.map((cat, i) => {
+                const pct = expenseTotal > 0 ? (cat.total / expenseTotal) * 100 : 0;
+                return (
+                  <View key={i} style={styles.catRow}>
+                    <View style={styles.catInfo}>
+                      <View style={[styles.catDot, { backgroundColor: cat.color }]} />
+                      <Text style={styles.catName}>{cat.name}</Text>
+                      <Text style={styles.catAmount}>{formatCurrency(cat.total, currency)}</Text>
                     </View>
-                    <Text style={styles.categoryAmount}>
-                      {formatCurrency(cat.total, currency)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.categoryBarContainer}>
-                    <View style={styles.categoryBarBg}>
+                    <View style={styles.barBg}>
                       <View
                         style={[
-                          styles.categoryBarFill,
-                          { width: `${percentage}%`, backgroundColor: cat.color },
+                          styles.barFill,
+                          { width: `${pct}%` as any, backgroundColor: cat.color },
                         ]}
                       />
                     </View>
-                    <Text style={styles.categoryPercentage}>{percentage.toFixed(1)}%</Text>
+                    <Text style={styles.catPct}>{pct.toFixed(1)}%</Text>
                   </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {byCategory.length === 0 && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              No expenses recorded for this period.
+            </Text>
           </View>
-        </TouchableOpacity>
-      )}
+        )}
 
-      {stats.expenses.length === 0 && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>
-            No expenses recorded for this period.
-          </Text>
-        </View>
-      )}
-
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -502,17 +475,67 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     flexShrink: 1,
   },
-  categoryCard: {
+  card: {
     backgroundColor: 'rgba(38, 37, 44, 1)',
     borderRadius: 24,
     padding: 16,
-    marginHorizontal: 8,
-    marginBottom: 6,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 20,
     elevation: 8,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+    marginBottom: 16,
+  },
+  catRow: {
+    marginBottom: 14,
+  },
+  catInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  catDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  catName: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '500',
+    flex: 1,
+  },
+  catAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  barBg: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  catPct: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+    marginTop: 3,
+    textAlign: 'right',
+  },
+  categoryCard: {
+    marginHorizontal: 8,
+    marginBottom: 6,
     alignSelf: 'stretch',
   },
   categoryHeader: {

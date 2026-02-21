@@ -37,6 +37,8 @@ export interface RecurringPayment {
   startMonth?: number;
   excludedMonths: string[];
   isActive: boolean;
+  activeFrom?: string; // "YYYY-MM" lifecycle start
+  activeTo?: string;   // "YYYY-MM" lifecycle end
   createdAt: string;
 }
 

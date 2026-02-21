@@ -15,8 +15,9 @@ import { Ionicons } from '@expo/vector-icons';
 import LoginScreen from '../screens/LoginScreen';
 import OverviewScreen from '../screens/OverviewScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
-import CategoriesScreen from '../screens/CategoriesScreen';
 import RecurringPaymentsScreen from '../screens/RecurringPaymentsScreen';
+import ReportsScreen from '../screens/ReportsScreen';
+import EditExpenseScreen from '../screens/EditExpenseScreen';
 import AccountScreen from '../screens/AccountScreen';
 import RecentExpensesScreen from '../screens/RecentExpensesScreen';
 
@@ -41,6 +42,9 @@ type AppStackParamList = {
     year: number;
     month: number;
     viewMode: 'month' | 'year';
+  };
+  EditExpense: {
+    expenseId: string;
   };
 };
 
@@ -125,51 +129,21 @@ function MainTabs({ navigation }: any) {
         }}
       />
       <Tab.Screen
-        name="Categories"
-        component={CategoriesScreen}
-        listeners={({ navigation }) => ({
-          focus: () => {
-            navigation.setOptions({
-              headerRight: () => (
-                <HeaderIconButton 
-                  icon="add-outline" 
-                  onPress={() => {
-                    const currentRoute = navigation.getState().routes[navigation.getState().index];
-                    if (currentRoute.params && 'toggleView' in currentRoute.params) {
-                      (currentRoute.params as any).toggleView();
-                    }
-                  }} 
-                  style={{ marginRight: 12 }} 
-                />
-              ),
-            });
-          },
-        })}
-        options={{
-          tabBarIcon: ({ color, focused }) => (
-            <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
-              <Ionicons name="layers" size={24} color={focused ? '#000000' : '#ffffff'} />
-            </View>
-          ),
-          title: 'Categories',
-        }}
-      />
-      <Tab.Screen
         name="Recurring"
         component={RecurringPaymentsScreen}
         listeners={({ navigation }) => ({
           focus: () => {
             navigation.setOptions({
               headerRight: () => (
-                <HeaderIconButton 
-                  icon="add-outline" 
+                <HeaderIconButton
+                  icon="add-outline"
                   onPress={() => {
                     const currentRoute = navigation.getState().routes[navigation.getState().index];
                     if (currentRoute.params && 'toggleView' in currentRoute.params) {
                       (currentRoute.params as any).toggleView();
                     }
-                  }} 
-                  style={{ marginRight: 12 }} 
+                  }}
+                  style={{ marginRight: 12 }}
                 />
               ),
             });
@@ -182,6 +156,18 @@ function MainTabs({ navigation }: any) {
             </View>
           ),
           title: 'Recurring Payments',
+        }}
+      />
+      <Tab.Screen
+        name="Reports"
+        component={ReportsScreen}
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
+              <Ionicons name="bar-chart-outline" size={24} color={focused ? '#000000' : '#ffffff'} />
+            </View>
+          ),
+          title: 'Reports',
         }}
       />
     </Tab.Navigator>
@@ -259,13 +245,20 @@ function AppContent() {
         options={{
           title: 'Recent Expenses',
           headerBackTitle: 'Back',
-          headerStyle: {
-            backgroundColor: '#ffffff',
-          },
+          headerStyle: { backgroundColor: '#ffffff' },
           headerTintColor: '#000000',
-          headerTitleStyle: {
-            color: '#000000',
-          },
+          headerTitleStyle: { color: '#000000' },
+        }}
+      />
+      <Stack.Screen
+        name="EditExpense"
+        component={EditExpenseScreen}
+        options={{
+          title: 'Edit Expense',
+          headerBackTitle: 'Back',
+          headerStyle: { backgroundColor: '#000000' },
+          headerTintColor: '#ffffff',
+          headerTitleStyle: { color: '#ffffff' },
         }}
       />
     </Stack.Navigator>

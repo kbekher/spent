@@ -101,6 +101,32 @@ router.post('/', checkJwt, async (req: Request, res: Response) => {
   }
 });
 
+// Update an expense
+router.put('/:id', checkJwt, async (req: Request, res: Response) => {
+  try {
+    const { amount, categoryId, description, date } = req.body;
+
+    const expense = await Expense.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...(amount !== undefined && { amount }),
+        ...(categoryId !== undefined && { categoryId }),
+        ...(description !== undefined && { description }),
+        ...(date !== undefined && { date: new Date(date) }),
+      },
+      { new: true }
+    );
+
+    if (!expense) {
+      return res.status(404).json({ error: 'Expense not found' });
+    }
+
+    res.json(expense);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to update expense', message: error.message });
+  }
+});
+
 // Delete an expense
 router.delete('/:id', checkJwt, async (req: Request, res: Response) => {
   try {

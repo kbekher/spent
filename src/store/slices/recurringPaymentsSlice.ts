@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RecurringPayment } from '../../types';
 import * as api from '../../services/api';
 
@@ -107,6 +107,9 @@ const recurringPaymentsSlice = createSlice({
     clearRecurringPayments: (state) => {
       state.items = [];
     },
+    syncCategoryUpdate: (_state, _action: PayloadAction<{ _id: string; name: string; color: string }>) => {
+      // Recurring payments reference categoryId by string; no local sync needed
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -140,5 +143,5 @@ const recurringPaymentsSlice = createSlice({
   },
 });
 
-export const { clearRecurringPayments } = recurringPaymentsSlice.actions;
+export const { clearRecurringPayments, syncCategoryUpdate } = recurringPaymentsSlice.actions;
 export default recurringPaymentsSlice.reducer;
