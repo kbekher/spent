@@ -8,7 +8,20 @@ const router = Router();
 router.get('/user/:userId', checkJwt, async (req: Request, res: Response) => {
   try {
     const payments = await RecurringPayment.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-    res.json(payments);
+    
+    // Verify createdAt is present in all payments
+    const paymentsWithTimestamps = payments.map((p) => {
+      const payment = p.toObject ? p.toObject() : p;
+      if (!payment.createdAt) {
+        console.warn('Payment missing createdAt:', payment._id);
+      }
+      return payment;
+    });
+    
+    console.log(`Fetched ${paymentsWithTimestamps.length} recurring payments, all have createdAt:`, 
+      paymentsWithTimestamps.every(p => p.createdAt));
+    
+    res.json(paymentsWithTimestamps);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to fetch recurring payments', message: error.message });
   }
@@ -41,7 +54,12 @@ router.post('/', checkJwt, async (req: Request, res: Response) => {
     });
 
     await payment.save();
-    res.status(201).json(payment);
+    
+    // Ensure createdAt is included in response (Mongoose timestamps should auto-set this)
+    const paymentResponse = payment.toObject ? payment.toObject() : payment;
+    console.log('Created recurring payment with createdAt:', paymentResponse.createdAt);
+    
+    res.status(201).json(paymentResponse);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to create recurring payment', message: error.message });
   }
@@ -80,7 +98,9 @@ router.put('/:id', checkJwt, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Recurring payment not found' });
     }
 
-    res.json(payment);
+    // Ensure createdAt is included in response
+    const paymentResponse = payment.toObject ? payment.toObject() : payment;
+    res.json(paymentResponse);
   } catch (error: any) {
     res.status(500).json({ error: 'Failed to update recurring payment', message: error.message });
   }

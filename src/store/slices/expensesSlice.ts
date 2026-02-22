@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Expense, ExpenseStats } from '../../types';
 export type { Expense };
 import * as api from '../../services/api';
+import { getValidDayForMonth } from '../../utils/recurringUtils';
 
 interface ExpensesState {
   items: Expense[];
@@ -80,7 +81,9 @@ export const createExpenseFromRecurring = createAsyncThunk(
     year: number;
     month: number;
   }) => {
-    const expenseDate = new Date(year, month - 1, recurringPayment.startDay);
+    // Get valid day for the month (handles edge cases like Feb 30 -> Feb 28/29)
+    const validDay = getValidDayForMonth(year, month, recurringPayment.startDay);
+    const expenseDate = new Date(year, month - 1, validDay);
     return await api.createExpense(
       recurringPayment.userId,
       recurringPayment.amount,

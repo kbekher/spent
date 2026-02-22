@@ -26,6 +26,7 @@ import CategoryChipSelector from '../components/CategoryChipSelector';
 import { Ionicons } from '@expo/vector-icons';
 import { getRandomCategoryColor } from '../utils/categoryColors';
 import { addCategory, optimisticAddCategory, optimisticDeleteCategory } from '../store/slices/categoriesSlice';
+import { getValidDayForMonth } from '../utils/recurringUtils';
 
 interface RecurringPaymentsScreenProps {
   navigation: any;
@@ -137,6 +138,12 @@ export default function RecurringPaymentsScreen({
   };
 
   const handleSubmit = async () => {
+    // Validate name (required, non-empty)
+    if (!paymentName || !paymentName.trim()) {
+      Alert.alert('Error', 'Please enter a payment name');
+      return;
+    }
+
     const amountNum = parseFloat(amount);
     if (!amountNum || amountNum <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
@@ -154,6 +161,11 @@ export default function RecurringPaymentsScreen({
       return;
     }
 
+    // Normalize day for the current month (handle edge cases like Feb 30 -> Feb 28/29)
+    const currentYear = new Date().getFullYear();
+    const currentMonth = new Date().getMonth() + 1;
+    const validDay = getValidDayForMonth(currentYear, currentMonth, dayNum);
+
     if (loading) return;
     setLoading(true);
 
@@ -169,7 +181,7 @@ export default function RecurringPaymentsScreen({
             amount: amountNum,
             categoryId,
             frequency,
-            startDay: parseInt(startDay),
+            startDay: validDay,
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
             excludedMonths: payment.excludedMonths || [],
             isActive: payment.isActive,
@@ -183,7 +195,7 @@ export default function RecurringPaymentsScreen({
             amount: amountNum,
             categoryId,
             frequency,
-            startDay: parseInt(startDay),
+            startDay: validDay,
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
           })
         ).unwrap();
@@ -251,10 +263,11 @@ export default function RecurringPaymentsScreen({
   };
 
   const selectedCategory = categories.find((c) => c._id === categoryId);
-  const canNext1 = parseFloat(amount) > 0;
-  const canNext2 = !!categoryId;
-  const canNext3 = true; // Frequency always has a default
-  const canSubmit = parseInt(startDay) >= 1 && parseInt(startDay) <= 31;
+  const canNext1 = paymentName.trim().length > 0; // Step 1: Name required
+  const canNext2 = parseFloat(amount) > 0; // Step 2: Amount required
+  const canNext3 = !!categoryId; // Step 3: Category required
+  const canNext4 = true; // Step 4: Frequency always has a default
+  const canSubmit = parseInt(startDay) >= 1 && parseInt(startDay) <= 31 && paymentName.trim().length > 0; // Step 5: Overview - validate all
 
   // if (recurringError && recurringPayments.length === 0) {
   //   console.log('recurringError', recurringError);
@@ -298,7 +311,7 @@ export default function RecurringPaymentsScreen({
       <SafeAreaView style={styles.container} edges={['bottom']}>
         {/* Step indicator */}
         <View style={styles.stepIndicator}>
-          {[1, 2, 3, 4].map((s) => (
+          {[1, 2, 3, 4, 5].map((s) => (
             <View key={s} style={[styles.stepDot, s === step && styles.stepDotActive]} />
           ))}
         </View>
@@ -308,8 +321,30 @@ export default function RecurringPaymentsScreen({
           contentContainerStyle={styles.contentContainer}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Step 1 — Amount */}
+          {/* Step 1 — Name */}
           {step === 1 && (
+            <>
+              <Text style={styles.stepLabel}>Payment Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={paymentName}
+                onChangeText={setPaymentName}
+                placeholder="e.g., Rent, Netflix, Gym"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                autoFocus
+              />
+              <TouchableOpacity
+                style={[styles.nextBtn, !canNext1 && styles.nextBtnDisabled]}
+                onPress={() => setStep(2)}
+                disabled={!canNext1}
+              >
+                <Text style={styles.nextBtnText}>Next →</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Step 2 — Amount */}
+          {step === 2 && (
             <>
               <View style={styles.amountDisplay}>
                 <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'UAH' ? '₴' : currency === 'GBP' ? '£' : '$'}</Text>
@@ -337,26 +372,6 @@ export default function RecurringPaymentsScreen({
                   </TouchableOpacity>
                 </View>
               </View>
-              <TouchableOpacity
-                style={[styles.nextBtn, !canNext1 && styles.nextBtnDisabled]}
-                onPress={() => setStep(2)}
-                disabled={!canNext1}
-              >
-                <Text style={styles.nextBtnText}>Next →</Text>
-              </TouchableOpacity>
-            </>
-          )}
-
-          {/* Step 2 — Category */}
-          {step === 2 && (
-            <>
-              <Text style={styles.stepLabel}>Select Category</Text>
-              <CategoryChipSelector
-                categories={categories}
-                selectedId={categoryId}
-                onSelect={(id) => setCategoryId(id)}
-                onCreateNew={handleCreateCategory}
-              />
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}>
                   <Text style={styles.backBtnText}>← Back</Text>
@@ -372,8 +387,33 @@ export default function RecurringPaymentsScreen({
             </>
           )}
 
-          {/* Step 3 — Frequency */}
+          {/* Step 3 — Category */}
           {step === 3 && (
+            <>
+              <Text style={styles.stepLabel}>Select Category</Text>
+              <CategoryChipSelector
+                categories={categories}
+                selectedId={categoryId}
+                onSelect={(id) => setCategoryId(id)}
+                onCreateNew={handleCreateCategory}
+              />
+              <View style={styles.navRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.nextBtn, !canNext3 && styles.nextBtnDisabled, { flex: 1 }]}
+                  onPress={() => setStep(4)}
+                  disabled={!canNext3}
+                >
+                  <Text style={styles.nextBtnText}>Next →</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* Step 4 — Frequency */}
+          {step === 4 && (
             <>
               <Text style={styles.stepLabel}>Frequency</Text>
               <View style={styles.frequencyRow}>
@@ -450,13 +490,13 @@ export default function RecurringPaymentsScreen({
                 </View>
               )}
               <View style={styles.navRow}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
                   <Text style={styles.backBtnText}>← Back</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.nextBtn, !canNext3 && styles.nextBtnDisabled, { flex: 1 }]}
-                  onPress={() => setStep(4)}
-                  disabled={!canNext3}
+                  style={[styles.nextBtn, !canNext4 && styles.nextBtnDisabled, { flex: 1 }]}
+                  onPress={() => setStep(5)}
+                  disabled={!canNext4}
                 >
                   <Text style={styles.nextBtnText}>Next →</Text>
                 </TouchableOpacity>
@@ -464,10 +504,10 @@ export default function RecurringPaymentsScreen({
             </>
           )}
 
-          {/* Step 4 — Details */}
-          {step === 4 && (
+          {/* Step 5 — Overview */}
+          {step === 5 && (
             <>
-              <Text style={styles.stepLabel}>Details</Text>
+              <Text style={styles.stepLabel}>Overview</Text>
 
               {selectedCategory && (
                 <View style={styles.summaryRow}>
@@ -479,17 +519,22 @@ export default function RecurringPaymentsScreen({
                 </View>
               )}
 
-              <Text style={styles.fieldLabel}>Payment Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={paymentName}
-                onChangeText={setPaymentName}
-                placeholder="e.g., Rent, Netflix, Gym"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-              />
+              <View style={styles.summaryRow}>
+                <Text style={styles.fieldLabel}>Name:</Text>
+                <Text style={styles.summaryText}>{paymentName || 'Not set'}</Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.fieldLabel}>Frequency:</Text>
+                <Text style={styles.summaryText}>
+                  {frequency === 'monthly' ? 'Monthly' : frequency === 'quarterly' ? 'Quarterly' : 'Yearly'}
+                  {frequency === 'monthly' && ` • Day ${startDay}`}
+                  {(frequency === 'quarterly' || frequency === 'yearly') && startMonth && ` • ${MONTH_NAMES[parseInt(startMonth) - 1]}`}
+                </Text>
+              </View>
 
               <View style={styles.navRow}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(4)}>
                   <Text style={styles.backBtnText}>← Back</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -501,7 +546,7 @@ export default function RecurringPaymentsScreen({
                     <ActivityIndicator color="#ffffff" />
                   ) : (
                     <Text style={styles.submitBtnText}>
-                      {editingId ? 'Update' : 'Create'}
+                      {editingId ? 'Update' : 'Save'}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -539,9 +584,8 @@ export default function RecurringPaymentsScreen({
                         { backgroundColor: categoryObj?.color || '#666' },
                       ]}
                     />
-                    <Text style={styles.paymentCategory}>{categoryObj?.name || 'No category'}</Text>
+                    <Text style={styles.paymentName}>{payment.name}</Text>
                   </View>
-                  {payment.name ? <Text style={styles.paymentName}>{payment.name}</Text> : ''}
                   <Text style={styles.paymentDetails}>
                     {getFrequencyLabel(payment.frequency || 'monthly', payment.startMonth)} {payment.frequency === 'monthly' ? `• Day ${payment.startDay}` : ''}
                   </Text>
@@ -814,6 +858,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
+    color: '#ffffff',
   },
   summaryAmount: {
     fontSize: 18,
@@ -875,15 +920,11 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 8,
   },
-  paymentCategory: {
+  paymentName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
     flexShrink: 1,
-  },
-  paymentName: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.5)',
   },
   paymentDetails: {
     fontSize: 12,

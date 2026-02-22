@@ -1,6 +1,14 @@
 import { RecurringPayment } from '../types';
 
 /**
+ * Get valid day for a given month/year (handles edge cases like Feb 30 -> Feb 28/29)
+ */
+export function getValidDayForMonth(year: number, month: number, requestedDay: number): number {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  return Math.min(requestedDay, daysInMonth);
+}
+
+/**
  * Returns true if the recurring payment should be counted for the given year+month.
  * Checks: isActive, excludedMonths, frequency cycle, and lifecycle activeFrom/activeTo.
  */

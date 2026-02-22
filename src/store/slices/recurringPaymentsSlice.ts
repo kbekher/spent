@@ -119,7 +119,16 @@ const recurringPaymentsSlice = createSlice({
       })
       .addCase(fetchRecurringPayments.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload;
+        // Verify all payments have createdAt
+        const payments = action.payload.map((p: RecurringPayment) => {
+          if (!p.createdAt) {
+            console.warn('Fetched recurring payment missing createdAt:', p._id);
+          }
+          return p;
+        });
+        console.log(`Fetched ${payments.length} recurring payments, all have createdAt:`, 
+          payments.every(p => p.createdAt));
+        state.items = payments;
       })
       .addCase(fetchRecurringPayments.rejected, (state, action) => {
         state.loading = false;
@@ -127,7 +136,14 @@ const recurringPaymentsSlice = createSlice({
       })
       // Add
       .addCase(addRecurringPayment.fulfilled, (state, action) => {
-        state.items.unshift(action.payload);
+        // Ensure createdAt is present (should be set by backend timestamps)
+        const payment = action.payload;
+        if (!payment.createdAt) {
+          console.warn('Recurring payment missing createdAt, adding current timestamp');
+          payment.createdAt = new Date().toISOString();
+        }
+        console.log('Added recurring payment with createdAt:', payment.createdAt);
+        state.items.unshift(payment);
       })
       // Edit
       .addCase(editRecurringPayment.fulfilled, (state, action) => {
