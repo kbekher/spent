@@ -49,14 +49,46 @@ export const addExpense = createAsyncThunk(
     categoryId,
     date,
     description,
+    recurringTemplateId,
   }: {
     userId: string;
     amount: number;
     categoryId: string;
     date?: Date;
     description?: string;
+    recurringTemplateId?: string;
   }) => {
-    return await api.createExpense(userId, amount, categoryId, date, description);
+    return await api.createExpense(userId, amount, categoryId, date, description, recurringTemplateId);
+  }
+);
+
+export const createExpenseFromRecurring = createAsyncThunk(
+  'expenses/createFromRecurring',
+  async ({
+    recurringPayment,
+    year,
+    month,
+  }: {
+    recurringPayment: {
+      _id: string;
+      userId: string;
+      amount: number;
+      categoryId: string;
+      name: string;
+      dayOfMonth: number;
+    };
+    year: number;
+    month: number;
+  }) => {
+    const expenseDate = new Date(year, month - 1, recurringPayment.dayOfMonth);
+    return await api.createExpense(
+      recurringPayment.userId,
+      recurringPayment.amount,
+      recurringPayment.categoryId,
+      expenseDate,
+      recurringPayment.name,
+      recurringPayment._id
+    );
   }
 );
 

@@ -141,18 +141,6 @@ export default function AddExpenseScreen({ navigation }: AddExpenseScreenProps) 
     }
   };
 
-  if (categories.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>
-            ⚠️ No categories found. Please create a category first.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   const selectedCategory = categories.find((c) => c._id === categoryId);
   const canGoNext1 = parseFloat(amount) > 0;
   const canGoNext2 = !!categoryId;

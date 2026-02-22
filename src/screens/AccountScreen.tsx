@@ -12,14 +12,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutUser } from '../store/slices/authSlice';
-import { Picker } from '@react-native-picker/picker';
 import * as api from '../services/api';
 
 const CURRENCIES = [
+  { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'UAH', symbol: '₴', name: 'Ukrainian Hryvnia' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'GBP', symbol: '£', name: 'British Pound' },
+  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
 ];
 
 export default function AccountScreen() {
@@ -104,20 +105,30 @@ export default function AccountScreen() {
 
           <View style={styles.formField}>
             <Text style={styles.label}>Currency</Text>
-            <View style={styles.pickerContainer}>
-              <Picker
-                selectedValue={currency}
-                onValueChange={(value) => setCurrency(value)}
-                style={styles.picker}
-              >
-                {CURRENCIES.map((curr) => (
-                  <Picker.Item
+            <View style={styles.currencyChipsWrap}>
+              {CURRENCIES.map((curr) => {
+                const isSelected = currency === curr.code;
+                return (
+                  <TouchableOpacity
                     key={curr.code}
-                    label={`${curr.name} (${curr.symbol})`}
-                    value={curr.code}
-                  />
-                ))}
-              </Picker>
+                    style={[
+                      styles.currencyChip,
+                      isSelected && styles.currencyChipActive,
+                    ]}
+                    onPress={() => setCurrency(curr.code)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyChipText,
+                        isSelected && styles.currencyChipTextActive,
+                      ]}
+                    >
+                      {curr.symbol} {curr.code}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
 
@@ -232,15 +243,31 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     backgroundColor: 'rgba(0, 0, 0, 0.2)',
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  currencyChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  picker: {
-    height: 50,
+  currencyChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  currencyChipActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  currencyChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  currencyChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
   readOnlyField: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

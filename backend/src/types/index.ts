@@ -24,6 +24,7 @@ export interface IExpense extends Document {
   categoryId: string;
   date: Date;
   description?: string;
+  recurringTemplateId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

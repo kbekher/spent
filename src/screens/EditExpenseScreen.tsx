@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
@@ -35,6 +36,8 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
     state.expenses.items.find((e) => e._id === expenseId)
   );
 
+  const isRecurringInstance = !!expense?.recurringTemplateId;
+
   const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
   const [categoryId, setCategoryId] = useState(
@@ -44,7 +47,7 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
   );
   const [description, setDescription] = useState(expense?.description || '');
   const [date, setDate] = useState(
-    expense?.date ? expense.date.slice(0, 10) : new Date().toISOString().slice(0, 10)
+    expense?.date ? new Date(expense.date) : new Date()
   );
   const [loading, setLoading] = useState(false);
 
@@ -83,7 +86,7 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
         amount: amountNum,
         categoryId,
         description: description || undefined,
-        date: new Date(date).toISOString(),
+        date: date.toISOString(),
       })
     );
 
@@ -94,7 +97,7 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
           amount: amountNum,
           categoryId,
           description: description || undefined,
-          date: new Date(date),
+          date: date,
         })
       ).unwrap();
       navigation.goBack();
@@ -210,13 +213,32 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
             />
 
             <Text style={styles.fieldLabel}>Date</Text>
-            <TextInput
-              style={styles.textInput}
-              value={date}
-              onChangeText={setDate}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-            />
+            {isRecurringInstance ? (
+              <View style={styles.lockedField} pointerEvents="none">
+                <Text style={styles.lockedFieldText}>
+                  {date.toISOString().slice(0, 10)}
+                </Text>
+                <Text style={styles.lockedFieldHint}>Date locked (recurring payment)</Text>
+              </View>
+            ) : (
+              <TextInput
+                style={styles.textInput}
+                value={date.toISOString().slice(0, 10)}
+                onChangeText={(text) => {
+                  // Validate date format YYYY-MM-DD
+                  if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
+                    const newDate = new Date(text);
+                    if (!isNaN(newDate.getTime())) {
+                      setDate(newDate);
+                    }
+                  }
+                }}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                keyboardType="numeric"
+                maxLength={10}
+              />
+            )}
 
             <View style={styles.navRow}>
               <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
@@ -291,4 +313,23 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { backgroundColor: 'rgba(139,92,246,0.3)', shadowOpacity: 0, elevation: 0 },
   submitBtnText: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
+  lockedField: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    opacity: 0.6,
+  },
+  lockedFieldText: {
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 4,
+  },
+  lockedFieldHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    fontStyle: 'italic',
+  },
 });

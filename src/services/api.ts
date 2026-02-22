@@ -97,7 +97,8 @@ export const createExpense = async (
   amount: number,
   categoryId: string,
   date?: Date,
-  description?: string
+  description?: string,
+  recurringTemplateId?: string
 ) => {
   const response = await api.post('/expenses', {
     userId,
@@ -105,6 +106,7 @@ export const createExpense = async (
     categoryId,
     date: date?.toISOString(),
     description,
+    recurringTemplateId,
   });
   return response.data;
 };
@@ -177,6 +179,11 @@ export const updateRecurringPayment = async (
 
 export const toggleExcludeMonth = async (id: string, month: string) => {
   const response = await api.post(`/recurring-payments/${id}/toggle-exclude`, { month });
+  return response.data;
+};
+
+export const excludeRecurringPeriod = async (id: string, periodKey: string) => {
+  const response = await api.post(`/recurring-payments/${id}/exclude-period`, { periodKey });
   return response.data;
 };
 

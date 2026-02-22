@@ -23,6 +23,7 @@ export interface Expense {
   categoryId: string;
   date: string;
   description?: string;
+  recurringTemplateId?: string;
   createdAt: string;
 }
 

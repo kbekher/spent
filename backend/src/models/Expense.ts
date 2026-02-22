@@ -27,6 +27,10 @@ const expenseSchema = new Schema<IExpense>(
       type: String,
       trim: true,
     },
+    recurringTemplateId: {
+      type: String,
+      index: true,
+    },
   },
   {
     timestamps: true,

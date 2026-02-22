@@ -110,6 +110,33 @@ router.post('/:id/toggle-exclude', checkJwt, async (req: Request, res: Response)
   }
 });
 
+// Exclude a specific period (for recurring instance deletion)
+router.post('/:id/exclude-period', checkJwt, async (req: Request, res: Response) => {
+  try {
+    const { periodKey } = req.body; // Format: "YYYY-MM"
+    
+    if (!periodKey || !/^\d{4}-\d{2}$/.test(periodKey)) {
+      return res.status(400).json({ error: 'Invalid periodKey format. Expected YYYY-MM' });
+    }
+
+    const payment = await RecurringPayment.findById(req.params.id);
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Recurring payment not found' });
+    }
+
+    // Add period to excludedMonths if not already present
+    if (!payment.excludedMonths.includes(periodKey)) {
+      payment.excludedMonths.push(periodKey);
+      await payment.save();
+    }
+
+    res.json(payment);
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to exclude period', message: error.message });
+  }
+});
+
 // Delete a recurring payment
 router.delete('/:id', checkJwt, async (req: Request, res: Response) => {
   try {

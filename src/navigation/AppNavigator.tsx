@@ -59,6 +59,10 @@ const Tab = createBottomTabNavigator();
 function MainTabs({ navigation }: any) {
   const dispatch = useAppDispatch();
 
+  const handleAccountPress = () => {
+    navigation.navigate('Account');
+  };
+
   const handleLogoutPress = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
@@ -88,13 +92,15 @@ function MainTabs({ navigation }: any) {
         tabBarShowLabel: false,
         headerStyle: {
           backgroundColor: '#ffffff',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          height: 120,
         },
         headerTitleStyle: {
           fontWeight: 'bold',
           fontSize: 18,
           color: '#000000',
         },
-        headerTintColor: '#000000',
       }}
     >
       <Tab.Screen

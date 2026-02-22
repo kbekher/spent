@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,17 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import {
   removeExpense,
+  createExpenseFromRecurring,
+  fetchExpenses,
 } from '../store/slices/expensesSlice';
 import { formatCurrency } from '../utils/currency';
+import { isRecurringActiveForMonth } from '../utils/recurringUtils';
+import * as api from '../services/api';
 
 interface RecentExpensesScreenProps {
   route: {
@@ -37,15 +43,19 @@ interface DisplayItem {
 
 export default function RecentExpensesScreen({ route }: RecentExpensesScreenProps) {
   const { year: selectedYear, month: selectedMonth, viewMode } = route.params;
+  const navigation = useNavigation();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const { items: expenses } = useAppSelector((state) => state.expenses);
+  const { items: categories } = useAppSelector((state) => state.categories);
   const { items: recurringPayments } = useAppSelector(
     (state) => state.recurringPayments
   );
   const currency = user?.currency || 'EUR';
 
   const [filter, setFilter] = useState<'all' | 'expenses' | 'recurring'>('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [materializing, setMaterializing] = useState(false);
 
   // Filter expenses based on selected date
   const startDate =
@@ -57,62 +67,114 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
       ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59)
       : new Date(selectedYear, 11, 31, 23, 59, 59);
 
-  // Get recurring payments for the selected period
-  const getRecurringPaymentsForPeriod = () => {
-    const selectedMonthIndex = selectedMonth - 1;
-    const selectedMonthStr = String(selectedMonth).padStart(2, '0');
-    const fullMonthStr = `${selectedYear}-${selectedMonthStr}`;
+  // Materialize recurring payments as expenses for the selected month
+  useFocusEffect(
+    useCallback(() => {
+      if (viewMode !== 'month' || !user?._id) return;
 
-    return recurringPayments
-      .filter((p) => {
-        if (!p.isActive || p.excludedMonths.includes(fullMonthStr)) {
-          return false;
+      const materializeRecurringPayments = async () => {
+        setMaterializing(true);
+        try {
+          // Get active recurring payments for this month
+          const activeRecurring = recurringPayments.filter((p) =>
+            isRecurringActiveForMonth(p, selectedYear, selectedMonth)
+          );
+
+          // Check which ones don't have expenses yet
+          const expensesForMonth = expenses.filter((exp) => {
+            const expDate = new Date(exp.date);
+            return (
+              expDate >= startDate &&
+              expDate <= endDate &&
+              exp.recurringTemplateId
+            );
+          });
+
+          const existingTemplateIds = new Set(
+            expensesForMonth.map((exp) => exp.recurringTemplateId).filter(Boolean)
+          );
+
+          // Materialize missing recurring payments
+          const materializePromises = activeRecurring
+            .filter((p) => !existingTemplateIds.has(p._id))
+            .map((p) =>
+              dispatch(
+                createExpenseFromRecurring({
+                  recurringPayment: {
+                    _id: p._id,
+                    userId: p.userId,
+                    amount: p.amount,
+                    categoryId: p.categoryId,
+                    name: p.name,
+                    dayOfMonth: p.dayOfMonth,
+                  },
+                  year: selectedYear,
+                  month: selectedMonth,
+                })
+              )
+            );
+
+          await Promise.all(materializePromises);
+
+          // Refresh expenses list
+          if (materializePromises.length > 0) {
+            await dispatch(fetchExpenses({ userId: user._id })).unwrap();
+          }
+        } catch (error) {
+          console.error('Failed to materialize recurring payments:', error);
+        } finally {
+          setMaterializing(false);
         }
+      };
 
-        const frequency = p.frequency || 'monthly';
-        const startMonth = p.startMonth || 1;
-
-        if (frequency === 'monthly') {
-          return true;
-        }
-
-        if (frequency === 'yearly') {
-          return selectedMonth === startMonth;
-        }
-
-        if (frequency === 'quarterly') {
-          const monthsSinceStart =
-            (selectedMonthIndex - (startMonth - 1) + 12) % 12;
-          return monthsSinceStart % 3 === 0;
-        }
-
-        return false;
-      })
-      .map((p): DisplayItem => ({
-        _id: p._id,
-        userId: p.userId,
-        amount: p.amount,
-        categoryId: p.categoryId,
-        description: p.name,
-        date: new Date(selectedYear, selectedMonth - 1, p.dayOfMonth).toISOString(),
-        createdAt: p.createdAt,
-        isRecurring: true,
-      }));
-  };
-
-  // Combine expenses and recurring payments
-  const allItems: DisplayItem[] = useMemo(
-    () => [
-      ...expenses.filter((exp) => {
-        const expDate = new Date(exp.date);
-        return expDate >= startDate && expDate <= endDate;
-      }),
-      ...(viewMode === 'month' ? getRecurringPaymentsForPeriod() : []),
-    ],
-    [expenses, recurringPayments, selectedYear, selectedMonth, viewMode]
+      materializeRecurringPayments();
+    }, [
+      viewMode,
+      selectedYear,
+      selectedMonth,
+      recurringPayments,
+      expenses,
+      user?._id,
+      dispatch,
+      startDate,
+      endDate,
+    ])
   );
 
-  // Apply filter
+  // Get expenses for the selected period (including materialized recurring instances)
+  const allItems: DisplayItem[] = useMemo(
+    () => {
+      let filteredExpenses = expenses.filter((exp) => {
+        const expDate = new Date(exp.date);
+        return expDate >= startDate && expDate <= endDate;
+      });
+
+      // Apply category filter if selected
+      if (selectedCategoryId) {
+        filteredExpenses = filteredExpenses.filter((exp) => {
+          const catId = typeof exp.categoryId === 'object' 
+            ? (exp.categoryId as any)?._id 
+            : exp.categoryId;
+          return catId === selectedCategoryId;
+        });
+      }
+
+      // Map expenses to DisplayItem format
+      return filteredExpenses.map((exp): DisplayItem => ({
+        _id: exp._id,
+        userId: exp.userId,
+        amount: exp.amount,
+        categoryId: exp.categoryId,
+        description: exp.description,
+        date: exp.date,
+        createdAt: exp.createdAt,
+        isRecurring: !!exp.recurringTemplateId,
+      }));
+    },
+    [expenses, startDate, endDate, selectedCategoryId]
+  );
+
+  // Apply type filter (all/expenses/recurring)
   const filteredItems = allItems
     .filter((item) => {
       if (filter === 'expenses') return !item.isRecurring;
@@ -122,14 +184,6 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleDelete = async (id: string, isRecurring: boolean) => {
-    if (isRecurring) {
-      Alert.alert(
-        'Cannot Delete',
-        "Recurring payments can't be deleted from here. Please go to the Recurring Payments page."
-      );
-      return;
-    }
-
     if (id.startsWith('temp-')) {
       Alert.alert(
         'Please Wait',
@@ -138,14 +192,50 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
       return;
     }
 
+    const expense = expenses.find((e) => e._id === id);
+    if (!expense) return;
+
+    if (isRecurring && expense.recurringTemplateId) {
+      // For recurring instances: exclude the period and delete the expense
+      const periodKey = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+      const monthName = new Date(selectedYear, selectedMonth - 1, 1).toLocaleString('en-US', { month: 'long' });
+      const templateId = expense.recurringTemplateId;
+      
+      Alert.alert(
+        'Skip Recurring Payment',
+        `Skip this recurring payment for ${monthName} ${selectedYear}?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Skip',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // Exclude the period
+                await api.excludeRecurringPeriod(templateId, periodKey);
+                // Delete the expense instance
+                await dispatch(removeExpense(id)).unwrap();
+                // Refresh expenses
+                if (user?._id) {
+                  await dispatch(fetchExpenses({ userId: user._id })).unwrap();
+                }
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to skip recurring payment.');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // For regular expenses: normal delete
     Alert.alert('Delete Expense', 'Are you sure you want to delete this expense?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          // Optimistic delete removed - using direct delete
-
           try {
             await dispatch(removeExpense(id)).unwrap();
           } catch (error: any) {
@@ -174,6 +264,55 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
             : `${selectedYear}`}
         </Text>
       </View>
+
+      {/* Category Filter */}
+      {categories.length > 0 && (
+        <View style={styles.categoryFilterContainer}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryFilterScroll}
+          >
+            <TouchableOpacity
+              style={[
+                styles.categoryFilterChip,
+                !selectedCategoryId && styles.categoryFilterChipActive,
+              ]}
+              onPress={() => setSelectedCategoryId(null)}
+            >
+              <Text
+                style={[
+                  styles.categoryFilterChipText,
+                  !selectedCategoryId && styles.categoryFilterChipTextActive,
+                ]}
+              >
+                All Categories
+              </Text>
+            </TouchableOpacity>
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat._id}
+                style={[
+                  styles.categoryFilterChip,
+                  selectedCategoryId === cat._id && styles.categoryFilterChipActive,
+                  selectedCategoryId === cat._id && { backgroundColor: cat.color },
+                ]}
+                onPress={() => setSelectedCategoryId(cat._id)}
+              >
+                <View style={[styles.categoryFilterDot, { backgroundColor: cat.color }]} />
+                <Text
+                  style={[
+                    styles.categoryFilterChipText,
+                    selectedCategoryId === cat._id && styles.categoryFilterChipTextActive,
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Filter Tabs */}
       <View style={styles.filterTabs}>
@@ -224,14 +363,28 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
       {filteredItems.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
-            No items recorded for this period.
+            {selectedCategoryId
+              ? 'No expenses for this category in this period.'
+              : 'No items recorded for this period.'}
           </Text>
+          {selectedCategoryId && (
+            <TouchableOpacity
+              style={styles.clearFilterButton}
+              onPress={() => setSelectedCategoryId(null)}
+            >
+              <Text style={styles.clearFilterButtonText}>Clear filter</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
           {filteredItems.map((item) => {
-            const category =
-              typeof item.categoryId === 'object' ? item.categoryId : null;
+            // Resolve category - check if it's an object or needs lookup
+            let category = typeof item.categoryId === 'object' ? item.categoryId : null;
+            if (!category && typeof item.categoryId === 'string') {
+              category = categories.find((c) => c._id === item.categoryId) || null;
+            }
+            
             const date = new Date(item.date);
 
             return (
@@ -259,6 +412,21 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
                     </Text>
                   </View>
 
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => (navigation as any).navigate('EditExpense', { expenseId: item._id })}
+                  >
+                    <Ionicons name="create-outline" size={18} color="#8b5cf6" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDelete(item._id, !!item.isRecurring)}
+                  >
+                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                  </TouchableOpacity>
+                </View>
+
                   <View style={styles.expenseRight}>
                     <Text style={styles.expenseDate}>
                       {date.toLocaleDateString('en-US', {
@@ -271,23 +439,6 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
                     </Text>
                   </View>
                 </View>
-
-                {!item.isRecurring && (
-                  <View style={styles.actionButtons}>
-                    <TouchableOpacity
-                      style={styles.editButton}
-                      onPress={() => navigation.navigate('EditExpense', { expenseId: item._id })}
-                    >
-                      <Text style={styles.actionButtonText}>✏️</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDelete(item._id, !!item.isRecurring)}
-                    >
-                      <Text style={styles.actionButtonText}>🗑️</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             );
           })}
@@ -312,6 +463,47 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#ffffff',
     textAlign: 'center',
+  },
+  categoryFilterContainer: {
+    backgroundColor: 'rgba(38, 37, 44, 1)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  categoryFilterScroll: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  categoryFilterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: 8,
+  },
+  categoryFilterChipActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  categoryFilterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  categoryFilterChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  categoryFilterChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
   filterTabs: {
     flexDirection: 'row',
@@ -356,10 +548,12 @@ const styles = StyleSheet.create({
   expenseMain: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   expenseLeft: {
     flex: 1,
     gap: 4,
+    marginRight: 12,
   },
   expenseTop: {
     flexDirection: 'row',
@@ -397,6 +591,7 @@ const styles = StyleSheet.create({
   expenseRight: {
     alignItems: 'flex-end',
     gap: 4,
+    minWidth: 80,
   },
   expenseDate: {
     fontSize: 12,
@@ -410,9 +605,7 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 8,
-    position: 'absolute',
-    right: 12,
-    bottom: 12,
+    marginRight: 12,
   },
   editButton: {
     width: 32,
@@ -430,9 +623,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  actionButtonText: {
-    fontSize: 14,
-  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -443,5 +633,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.5)',
     textAlign: 'center',
+    marginBottom: 12,
+  },
+  clearFilterButton: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignSelf: 'center',
+  },
+  clearFilterButtonText: {
+    fontSize: 14,
+    color: '#ffffff',
+    fontWeight: '600',
   },
 });

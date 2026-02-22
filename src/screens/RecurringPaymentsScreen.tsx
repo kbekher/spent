@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,9 +21,11 @@ import {
 import SkeletonBox from '../components/SkeletonBox';
 import ErrorState from '../components/ErrorState';
 import { RecurringPayment } from '../types';
-import { Picker } from '@react-native-picker/picker';
 import { formatCurrency } from '../utils/currency';
 import CategoryChipSelector from '../components/CategoryChipSelector';
+import { Ionicons } from '@expo/vector-icons';
+import { getRandomCategoryColor } from '../utils/categoryColors';
+import { addCategory, optimisticAddCategory, optimisticDeleteCategory } from '../store/slices/categoriesSlice';
 
 interface RecurringPaymentsScreenProps {
   navigation: any;
@@ -38,41 +41,26 @@ export default function RecurringPaymentsScreen({
 }: RecurringPaymentsScreenProps) {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { items: payments, loading: recurringLoading, error: recurringError } = useAppSelector((state) => state.recurringPayments);
-  const { items: categories } = useAppSelector((state) => state.categories) as { items: Array<{ _id: string; name: string; color: string }> };
+  const { items: categories } = useAppSelector((state) => state.categories);
+  const { items: recurringPayments, loading: recurringLoading } = useAppSelector(
+    (state) => state.recurringPayments
+  );
   const currency = user?.currency || 'EUR';
 
   const [view, setView] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [paymentName, setPaymentName] = useState('');
+
+  // Multi-step form state
+  const [step, setStep] = useState(1);
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [dayOfMonth, setDayOfMonth] = useState('1');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [startMonth, setStartMonth] = useState('1');
+  const [endMonth, setEndMonth] = useState('');
+  const [paymentName, setPaymentName] = useState('');
+  const [dayOfMonth, setDayOfMonth] = useState('1');
+  const [loading, setLoading] = useState(false);
 
-  // Set up navigation params to allow header button to toggle view
-  useFocusEffect(
-    React.useCallback(() => {
-      navigation.setParams({
-        toggleView: () => {
-          if (view === 'list') {
-            setView('form');
-          } else {
-            // Cancel form and go back to list
-            setView('list');
-            setEditingId(null);
-            setPaymentName('');
-            setAmount('');
-            setCategoryId(categories[0]?._id || '');
-            setDayOfMonth('1');
-            setFrequency('monthly');
-            setStartMonth('1');
-          }
-        },
-      });
-    }, [view, navigation, categories])
-  );
 
   // Set default category
   useEffect(() => {
@@ -81,84 +69,134 @@ export default function RecurringPaymentsScreen({
     }
   }, [categories, categoryId]);
 
-  // Reset form
+  const resetForm = () => {
+    setStep(1);
+    setEditingId(null);
+    setAmount('');
+    setCategoryId(categories[0]?._id || '');
+    setFrequency('monthly');
+    setStartMonth('1');
+    setEndMonth('');
+    setPaymentName('');
+    setDayOfMonth('1');
+  };
+
+  // Reset form when switching views
   useEffect(() => {
     if (view === 'list') {
-      setEditingId(null);
-      setPaymentName('');
-      setAmount('');
-      setCategoryId(categories[0]?._id || '');
-      setDayOfMonth('1');
-      setFrequency('monthly');
-      setStartMonth('1');
+      resetForm();
     }
-  }, [view, categories]);
+  }, [view]);
 
-  const handleCreate = async () => {
-    if (!paymentName.trim() || !amount || !categoryId) return;
+  // Set up navigation params to allow header button to toggle view
+  useFocusEffect(
+    useCallback(() => {
+      navigation.setParams({
+        toggleView: () => {
+          if (view === 'list') {
+            setView('form');
+            setStep(1);
+          } else {
+            // Cancel form and go back to list
+            resetForm();
+            setView('list');
+          }
+        },
+      });
+    }, [view, navigation])
+  );
 
-    const normalizedAmount = amount.replace(',', '.');
-    const amountNum = parseFloat(normalizedAmount);
+  const handleNumberPress = (num: string) => {
+    if (num === '.' && amount.includes('.')) return;
+    if (amount.includes('.') && amount.split('.')[1]?.length >= 2) return;
+    setAmount(amount + num);
+  };
 
+  const handleBackspace = () => setAmount(amount.slice(0, -1));
+
+  const handleCreateCategory = async (name: string) => {
+    if (!user?._id) return;
+    const color = getRandomCategoryColor();
+    const tempId = `temp-${Date.now()}`;
+    dispatch(
+      optimisticAddCategory({
+        _id: tempId,
+        userId: user._id,
+        name,
+        color,
+        createdAt: new Date().toISOString(),
+      })
+    );
     try {
-      await dispatch(
-        addRecurringPayment({
-          userId: user?._id || '',
-          name: paymentName.trim(),
-          amount: amountNum,
-          categoryId,
-          dayOfMonth: parseInt(dayOfMonth),
-          frequency,
-          startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
-        })
+      const result = await dispatch(
+        addCategory({ userId: user._id, name, color })
       ).unwrap();
-      
-      setPaymentName('');
-      setAmount('');
-      setCategoryId(categories[0]?._id || '');
-      setDayOfMonth('1');
-      setFrequency('monthly');
-      setStartMonth('1');
-      setView('list');
+      setCategoryId(result._id);
     } catch {
-      Alert.alert('Error', 'Failed to create recurring payment.');
+      dispatch(optimisticDeleteCategory(tempId));
+      Alert.alert('Error', 'Failed to create category.');
     }
   };
 
-  const handleUpdate = async (id: string) => {
-    if (!paymentName.trim() || !amount || !categoryId) return;
+  const handleSubmit = async () => {
+    const amountNum = parseFloat(amount);
+    if (!amountNum || amountNum <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
 
-    const payment = payments.find((p) => p._id === id);
-    if (!payment) return;
+    if (!categoryId) {
+      Alert.alert('Error', 'Please select a category');
+      return;
+    }
 
-    const normalizedAmount = amount.replace(',', '.');
-    const amountNum = parseFloat(normalizedAmount);
+    const dayNum = parseInt(dayOfMonth);
+    if (!dayNum || dayNum < 1 || dayNum > 31) {
+      Alert.alert('Error', 'Please enter a valid day of month (1-31)');
+      return;
+    }
+
+    if (loading) return;
+    setLoading(true);
 
     try {
-      await dispatch(
-        editRecurringPayment({
-          id,
-          name: paymentName.trim(),
-          amount: amountNum,
-          categoryId,
-          dayOfMonth: parseInt(dayOfMonth),
-          frequency,
-          startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
-          excludedMonths: payment.excludedMonths || [],
-          isActive: payment.isActive,
-        })
-      ).unwrap();
-      
-      setPaymentName('');
-      setAmount('');
-      setCategoryId(categories[0]?._id || '');
-      setDayOfMonth('1');
-      setFrequency('monthly');
-      setStartMonth('1');
-      setEditingId(null);
+      if (editingId) {
+        const payment = recurringPayments.find((p) => p._id === editingId);
+        if (!payment) return;
+
+        await dispatch(
+          editRecurringPayment({
+            id: editingId,
+            name: paymentName.trim(),
+            amount: amountNum,
+            categoryId,
+            dayOfMonth: dayNum,
+            frequency,
+            startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
+            excludedMonths: payment.excludedMonths || [],
+            isActive: payment.isActive,
+          })
+        ).unwrap();
+      } else {
+        await dispatch(
+          addRecurringPayment({
+            userId: user?._id || '',
+            name: paymentName.trim(),
+            amount: amountNum,
+            categoryId,
+            dayOfMonth: dayNum,
+            frequency,
+            startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
+          })
+        ).unwrap();
+      }
+
+      resetForm();
       setView('list');
-    } catch {
-      Alert.alert('Error', 'Failed to update recurring payment.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save recurring payment.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -185,16 +223,17 @@ export default function RecurringPaymentsScreen({
 
   const startEdit = (payment: any) => {
     setEditingId(payment._id);
-    setPaymentName(payment.name);
     setAmount(payment.amount.toString());
     setCategoryId(
       typeof payment.categoryId === 'object'
         ? payment.categoryId._id
         : payment.categoryId
     );
-    setDayOfMonth(payment.dayOfMonth.toString());
     setFrequency(payment.frequency || 'monthly');
     setStartMonth(payment.startMonth?.toString() || '1');
+    setPaymentName(payment.name);
+    setDayOfMonth(payment.dayOfMonth.toString());
+    setStep(1);
     setView('form');
   };
 
@@ -213,97 +252,133 @@ export default function RecurringPaymentsScreen({
     }
   };
 
-  if (recurringError && payments.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ErrorState
-          message={recurringError}
-          onRetry={() => user?._id && dispatch(fetchRecurringPayments(user._id))}
-        />
-      </SafeAreaView>
-    );
-  }
+  const selectedCategory = categories.find((c) => c._id === categoryId);
+  const canNext1 = parseFloat(amount) > 0;
+  const canNext2 = !!categoryId;
+  const canNext3 = true; // Frequency always has a default
+  const canNext4 = true; // Start date optional
+  const canSubmit = paymentName.trim().length > 0 && parseInt(dayOfMonth) >= 1 && parseInt(dayOfMonth) <= 31;
 
-  if (recurringLoading && payments.length === 0) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <View style={{ padding: 16, gap: 10 }}>
-          <SkeletonBox height={80} borderRadius={12} />
-          <SkeletonBox height={80} borderRadius={12} />
-          <SkeletonBox height={80} borderRadius={12} />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // if (recurringError && recurringPayments.length === 0) {
+  //   console.log('recurringError', recurringError);
+  //   return (
+  //     <SafeAreaView style={styles.container} edges={['bottom']}>
+  //       <ErrorState
+  //         message={recurringError}
+  //         onRetry={() => user?._id && dispatch(fetchRecurringPayments(user._id))}
+  //       />
+  //     </SafeAreaView>
+  //   );
+  // }
 
-  if (categories.length === 0) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>
-            ⚠️ No categories found. Please create a category first.
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  // if (recurringLoading && recurringPayments.length === 0) {
+  //   return (
+  //     <SafeAreaView style={styles.container} edges={['bottom']}>
+  //       <View style={{ padding: 16, gap: 10 }}>
+  //         <SkeletonBox height={80} borderRadius={12} />
+  //         <SkeletonBox height={80} borderRadius={12} />
+  //         <SkeletonBox height={80} borderRadius={12} />
+  //       </View>
+  //     </SafeAreaView>
+  //   );
+  // }
 
-  // Form View
+  // if (recurringPayments.length === 0) {
+  //   return (
+  //     <View style={styles.container}>
+  //       <View style={styles.emptyState}>
+  //         <Text style={styles.emptyStateText}>
+  //           No Reccuring payments found
+  //         </Text>
+  //       </View>
+  //     </View>
+  //   );
+  // }
+
+  // Form View - Multi-step
   if (view === 'form') {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.formCard}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionDot} />
-            <Text style={styles.sectionTitle}>
-              {editingId ? 'Edit Payment' : 'Add Payment'}
-            </Text>
-          </View>
+        {/* Step indicator */}
+        <View style={styles.stepIndicator}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <View key={s} style={[styles.stepDot, s === step && styles.stepDotActive]} />
+          ))}
+        </View>
 
-          <View style={styles.form}>
-            <View style={styles.formField}>
-              <Text style={styles.label}>Payment Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={paymentName}
-                onChangeText={setPaymentName}
-                placeholder="e.g., Rent, Netflix, Gym"
-                placeholderTextColor="rgba(255, 255, 255, 0.3)"
-              />
-            </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Step 1 — Amount */}
+          {step === 1 && (
+            <>
+              <View style={styles.amountDisplay}>
+                <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'UAH' ? '₴' : currency === 'GBP' ? '£' : '$'}</Text>
+                <Text style={styles.amountText}>{amount || '0'}</Text>
+              </View>
+              <View style={styles.keypad}>
+                {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row, ri) => (
+                  <View key={ri} style={styles.keypadRow}>
+                    {row.map((n) => (
+                      <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
+                        <Text style={styles.keyText}>{n}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))}
+                <View style={styles.keypadRow}>
+                  <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('.')}>
+                    <Text style={styles.keyText}>.</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('0')}>
+                    <Text style={styles.keyText}>0</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.key} onPress={handleBackspace}>
+                    <Ionicons name="backspace-outline" size={28} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.nextBtn, !canNext1 && styles.nextBtnDisabled]}
+                onPress={() => setStep(2)}
+                disabled={!canNext1}
+              >
+                <Text style={styles.nextBtnText}>Next →</Text>
+              </TouchableOpacity>
+            </>
+          )}
 
-            <View style={styles.formField}>
-              <Text style={styles.label}>Amount ({currency})</Text>
-              <TextInput
-                style={styles.textInput}
-                value={amount}
-                onChangeText={(value) => {
-                  if (value === '' || /^\d*[.,]?\d*$/.test(value)) {
-                    setAmount(value);
-                  }
-                }}
-                placeholder="0.00"
-                placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                keyboardType="decimal-pad"
-              />
-            </View>
-
-            <View style={styles.formField}>
-              <Text style={styles.label}>Category</Text>
+          {/* Step 2 — Category */}
+          {step === 2 && (
+            <>
+              <Text style={styles.stepLabel}>Select Category</Text>
               <CategoryChipSelector
                 categories={categories}
                 selectedId={categoryId}
                 onSelect={(id) => setCategoryId(id)}
+                onCreateNew={handleCreateCategory}
               />
-            </View>
+              <View style={styles.navRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}>
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.nextBtn, !canNext2 && styles.nextBtnDisabled, { flex: 1 }]}
+                  onPress={() => setStep(3)}
+                  disabled={!canNext2}
+                >
+                  <Text style={styles.nextBtnText}>Next →</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
-            <View style={styles.formField}>
-              <Text style={styles.label}>Frequency</Text>
+          {/* Step 3 — Frequency */}
+          {step === 3 && (
+            <>
+              <Text style={styles.stepLabel}>Frequency</Text>
               <View style={styles.frequencyRow}>
                 {(['monthly', 'quarterly', 'yearly'] as const).map((freq) => (
                   <TouchableOpacity
@@ -325,63 +400,145 @@ export default function RecurringPaymentsScreen({
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
-
-            {(frequency === 'quarterly' || frequency === 'yearly') && (
-              <View style={styles.formField}>
-                <Text style={styles.label}>Start Month</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={startMonth}
-                    onValueChange={(value) => setStartMonth(value)}
-                    style={styles.picker}
-                  >
+              {(frequency === 'quarterly' || frequency === 'yearly') && (
+                <View style={styles.formField}>
+                  <Text style={styles.fieldLabel}>Start Month</Text>
+                  <View style={styles.monthSelector}>
                     {MONTH_NAMES.map((month, index) => (
-                      <Picker.Item key={index + 1} label={month} value={(index + 1).toString()} />
+                      <TouchableOpacity
+                        key={index + 1}
+                        style={[
+                          styles.monthChip,
+                          startMonth === (index + 1).toString() && styles.monthChipActive,
+                        ]}
+                        onPress={() => setStartMonth((index + 1).toString())}
+                      >
+                        <Text
+                          style={[
+                            styles.monthChipText,
+                            startMonth === (index + 1).toString() && styles.monthChipTextActive,
+                          ]}
+                        >
+                          {month.slice(0, 3)}
+                        </Text>
+                      </TouchableOpacity>
                     ))}
-                  </Picker>
+                  </View>
                 </View>
+              )}
+              <View style={styles.navRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.nextBtn, !canNext3 && styles.nextBtnDisabled, { flex: 1 }]}
+                  onPress={() => setStep(4)}
+                  disabled={!canNext3}
+                >
+                  <Text style={styles.nextBtnText}>Next →</Text>
+                </TouchableOpacity>
               </View>
-            )}
+            </>
+          )}
 
-            <View style={styles.formField}>
-              <Text style={styles.label}>Day of Month</Text>
+          {/* Step 4 — Start Date (End Date optional) */}
+          {step === 4 && (
+            <>
+              <Text style={styles.stepLabel}>Start Date</Text>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Start Month (Optional)</Text>
+                <Text style={styles.fieldHint}>Leave empty to start immediately</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={startMonth}
+                  onChangeText={setStartMonth}
+                  placeholder="1-12"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>End Month (Optional)</Text>
+                <Text style={styles.fieldHint}>Leave empty for no end date</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={endMonth}
+                  onChangeText={setEndMonth}
+                  placeholder="1-12"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  keyboardType="number-pad"
+                />
+              </View>
+              <View style={styles.navRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.nextBtn, !canNext4 && styles.nextBtnDisabled, { flex: 1 }]}
+                  onPress={() => setStep(5)}
+                  disabled={!canNext4}
+                >
+                  <Text style={styles.nextBtnText}>Next →</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+
+          {/* Step 5 — Details */}
+          {step === 5 && (
+            <>
+              <Text style={styles.stepLabel}>Details</Text>
+
+              {selectedCategory && (
+                <View style={styles.summaryRow}>
+                  <View style={[styles.summaryDot, { backgroundColor: selectedCategory.color }]} />
+                  <Text style={[styles.summaryText, { color: selectedCategory.color }]}>
+                    {selectedCategory.name}
+                  </Text>
+                  <Text style={styles.summaryAmount}>{formatCurrency(parseFloat(amount) || 0, currency)}</Text>
+                </View>
+              )}
+
+              <Text style={styles.fieldLabel}>Payment Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={paymentName}
+                onChangeText={setPaymentName}
+                placeholder="e.g., Rent, Netflix, Gym"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+
+              <Text style={styles.fieldLabel}>Day of Month</Text>
               <TextInput
                 style={styles.textInput}
                 value={dayOfMonth}
                 onChangeText={setDayOfMonth}
                 placeholder="1-31"
-                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                placeholderTextColor="rgba(255,255,255,0.3)"
                 keyboardType="number-pad"
               />
-            </View>
-          </View>
-        </View>
 
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={() => setView('list')}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.button, styles.submitButton]}
-            onPress={() => {
-              if (editingId) {
-                handleUpdate(editingId);
-              } else {
-                handleCreate();
-              }
-            }}
-          >
-            <Text style={styles.submitButtonText}>
-              {editingId ? 'Update' : 'Add'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+              <View style={styles.navRow}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(4)}>
+                  <Text style={styles.backBtnText}>← Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitBtn, loading && styles.submitBtnDisabled, { flex: 1 }]}
+                  onPress={handleSubmit}
+                  disabled={loading || !canSubmit}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <Text style={styles.submitBtnText}>
+                      {editingId ? 'Update' : 'Create'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -389,7 +546,7 @@ export default function RecurringPaymentsScreen({
   // List View
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {payments.length === 0 ? (
+      {recurringPayments.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyStateText}>
             No recurring payments yet. Set up your monthly expenses!
@@ -397,7 +554,7 @@ export default function RecurringPaymentsScreen({
         </View>
       ) : (
         <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-          {payments.map((payment: any) => {
+          {recurringPayments.map((payment: any) => {
             const category =
               typeof payment.categoryId === 'object' ? payment.categoryId : null;
 
@@ -425,13 +582,13 @@ export default function RecurringPaymentsScreen({
                     style={styles.actionButton}
                     onPress={() => startEdit(payment)}
                   >
-                    <Text style={styles.actionButtonText}>✏️</Text>
+                    <Ionicons name="create-outline" size={18} color="#8b5cf6" />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => handleDelete(payment._id)}
                   >
-                    <Text style={styles.actionButtonText}>🗑️</Text>
+                    <Ionicons name="trash-outline" size={18} color="#ef4444" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -450,6 +607,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     width: '100%',
   },
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  stepDotActive: {
+    backgroundColor: '#8b5cf6',
+    width: 20,
+  },
   scrollView: {
     flex: 1,
     width: '100%',
@@ -457,77 +631,98 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 16,
     paddingVertical: 16,
-    paddingBottom: 24,
+    paddingBottom: 100,
     width: '100%',
   },
-  formCard: {
-    backgroundColor: 'rgba(38, 37, 44, 1)',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
-    marginBottom: 16,
-    width: '100%',
-    maxWidth: '100%',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  stepLabel: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffffff',
     marginBottom: 20,
   },
-  sectionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#ffffff',
-    marginRight: 8,
+  amountDisplay: {
+    alignItems: 'center',
+    paddingVertical: 32,
+    marginBottom: 16,
   },
-  sectionTitle: {
-    fontSize: 16,
+  currencySymbol: {
+    fontSize: 20,
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  amountText: {
+    fontSize: 56,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  keypad: {
+    gap: 12,
+    marginBottom: 24,
+  },
+  keypadRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  key: {
+    flex: 1,
+    aspectRatio: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  keyText: {
+    fontSize: 32,
     fontWeight: '600',
     color: '#ffffff',
-    letterSpacing: 0.5,
   },
-  form: {
-    gap: 20,
+  navRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
   },
-  formField: {
-    gap: 8,
+  backBtn: {
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#ffffff',
-    opacity: 0.9,
-    letterSpacing: 0.5,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+  backBtnText: {
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 16,
-    color: '#ffffff',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    fontWeight: '600',
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  nextBtn: {
+    backgroundColor: '#8b5cf6',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#8b5cf6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  picker: {
-    height: 50,
+  nextBtnDisabled: {
+    backgroundColor: 'rgba(139,92,246,0.3)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  nextBtnText: {
     color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   frequencyRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 20,
   },
   freqChip: {
     flex: 1,
@@ -551,36 +746,100 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 12,
+  formField: {
+    marginBottom: 20,
   },
-  button: {
-    flex: 1,
-    paddingVertical: 16,
+  fieldLabel: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '500',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  fieldHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    marginBottom: 8,
+  },
+  textInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 12,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  cancelButtonText: {
-    color: 'rgba(255, 255, 255, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
+    color: '#ffffff',
+    marginBottom: 8,
+  },
+  monthSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  monthChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  monthChipActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  monthChipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  monthChipTextActive: {
+    color: '#ffffff',
     fontWeight: '600',
   },
-  submitButton: {
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    gap: 10,
+  },
+  summaryDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  summaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  summaryAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  submitBtn: {
     backgroundColor: '#8b5cf6',
+    paddingVertical: 18,
+    borderRadius: 16,
+    alignItems: 'center',
     shadowColor: '#8b5cf6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
     elevation: 4,
   },
-  submitButtonText: {
+  submitBtnDisabled: {
+    backgroundColor: 'rgba(139,92,246,0.3)',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  submitBtnText: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
   },
   listContainer: {
     flex: 1,
@@ -642,9 +901,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: 16,
   },
   emptyState: {
     flex: 1,
