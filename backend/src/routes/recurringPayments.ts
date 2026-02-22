@@ -22,8 +22,8 @@ router.post('/', checkJwt, async (req: Request, res: Response) => {
       name,
       amount,
       categoryId,
-      dayOfMonth,
       frequency,
+      startDay,
       startMonth,
       excludedMonths,
     } = req.body;
@@ -33,11 +33,11 @@ router.post('/', checkJwt, async (req: Request, res: Response) => {
       name,
       amount,
       categoryId,
-      dayOfMonth,
       frequency: frequency || 'monthly',
+      startDay: startDay || 1,
       startMonth,
       excludedMonths: excludedMonths || [],
-      isActive: true,
+      isActive: true
     });
 
     await payment.save();
@@ -54,8 +54,8 @@ router.put('/:id', checkJwt, async (req: Request, res: Response) => {
       name,
       amount,
       categoryId,
-      dayOfMonth,
       frequency,
+      startDay,
       startMonth,
       excludedMonths,
       isActive,
@@ -67,8 +67,8 @@ router.put('/:id', checkJwt, async (req: Request, res: Response) => {
         name,
         amount,
         categoryId,
-        dayOfMonth,
         frequency,
+        startDay,
         startMonth,
         excludedMonths,
         isActive,

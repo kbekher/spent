@@ -75,12 +75,12 @@ export const createExpenseFromRecurring = createAsyncThunk(
       amount: number;
       categoryId: string;
       name: string;
-      dayOfMonth: number;
+      startDay: number;
     };
     year: number;
     month: number;
   }) => {
-    const expenseDate = new Date(year, month - 1, recurringPayment.dayOfMonth);
+    const expenseDate = new Date(year, month - 1, recurringPayment.startDay);
     return await api.createExpense(
       recurringPayment.userId,
       recurringPayment.amount,

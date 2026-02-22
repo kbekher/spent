@@ -56,9 +56,8 @@ export default function RecurringPaymentsScreen({
   const [categoryId, setCategoryId] = useState('');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
   const [startMonth, setStartMonth] = useState('1');
-  const [endMonth, setEndMonth] = useState('');
+  const [startDay, setStartDay] = useState('1');
   const [paymentName, setPaymentName] = useState('');
-  const [dayOfMonth, setDayOfMonth] = useState('1');
   const [loading, setLoading] = useState(false);
 
 
@@ -76,9 +75,8 @@ export default function RecurringPaymentsScreen({
     setCategoryId(categories[0]?._id || '');
     setFrequency('monthly');
     setStartMonth('1');
-    setEndMonth('');
     setPaymentName('');
-    setDayOfMonth('1');
+    setStartDay('1');
   };
 
   // Reset form when switching views
@@ -150,7 +148,7 @@ export default function RecurringPaymentsScreen({
       return;
     }
 
-    const dayNum = parseInt(dayOfMonth);
+    const dayNum = parseInt(startDay);
     if (!dayNum || dayNum < 1 || dayNum > 31) {
       Alert.alert('Error', 'Please enter a valid day of month (1-31)');
       return;
@@ -170,8 +168,8 @@ export default function RecurringPaymentsScreen({
             name: paymentName.trim(),
             amount: amountNum,
             categoryId,
-            dayOfMonth: dayNum,
             frequency,
+            startDay: parseInt(startDay),
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
             excludedMonths: payment.excludedMonths || [],
             isActive: payment.isActive,
@@ -184,8 +182,8 @@ export default function RecurringPaymentsScreen({
             name: paymentName.trim(),
             amount: amountNum,
             categoryId,
-            dayOfMonth: dayNum,
             frequency,
+            startDay: parseInt(startDay),
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
           })
         ).unwrap();
@@ -230,9 +228,9 @@ export default function RecurringPaymentsScreen({
         : payment.categoryId
     );
     setFrequency(payment.frequency || 'monthly');
-    setStartMonth(payment.startMonth?.toString() || '1');
+    setStartMonth(payment.startMonth?.toString());
     setPaymentName(payment.name);
-    setDayOfMonth(payment.dayOfMonth.toString());
+    setStartDay(payment.startDay.toString());
     setStep(1);
     setView('form');
   };
@@ -256,8 +254,7 @@ export default function RecurringPaymentsScreen({
   const canNext1 = parseFloat(amount) > 0;
   const canNext2 = !!categoryId;
   const canNext3 = true; // Frequency always has a default
-  const canNext4 = true; // Start date optional
-  const canSubmit = paymentName.trim().length > 0 && parseInt(dayOfMonth) >= 1 && parseInt(dayOfMonth) <= 31;
+  const canSubmit = parseInt(startDay) >= 1 && parseInt(startDay) <= 31;
 
   // if (recurringError && recurringPayments.length === 0) {
   //   console.log('recurringError', recurringError);
@@ -301,7 +298,7 @@ export default function RecurringPaymentsScreen({
       <SafeAreaView style={styles.container} edges={['bottom']}>
         {/* Step indicator */}
         <View style={styles.stepIndicator}>
-          {[1, 2, 3, 4, 5].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <View key={s} style={[styles.stepDot, s === step && styles.stepDotActive]} />
           ))}
         </View>
@@ -400,6 +397,32 @@ export default function RecurringPaymentsScreen({
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <View style={styles.formField}>
+                <Text style={styles.fieldLabel}>Day of Month</Text>
+                <View style={styles.daySelector}>
+                  {Array.from({ length: 31 }, (_, i) => String(i + 1)).map((day) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[
+                        styles.dayChip,
+                        startDay === day && styles.dayChipActive,
+                      ]}
+                      onPress={() => setStartDay(day)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayChipText,
+                          startDay === day && styles.dayChipTextActive,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
               {(frequency === 'quarterly' || frequency === 'yearly') && (
                 <View style={styles.formField}>
                   <Text style={styles.fieldLabel}>Start Month</Text>
@@ -441,51 +464,8 @@ export default function RecurringPaymentsScreen({
             </>
           )}
 
-          {/* Step 4 — Start Date (End Date optional) */}
+          {/* Step 4 — Details */}
           {step === 4 && (
-            <>
-              <Text style={styles.stepLabel}>Start Date</Text>
-              <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>Start Month (Optional)</Text>
-                <Text style={styles.fieldHint}>Leave empty to start immediately</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={startMonth}
-                  onChangeText={setStartMonth}
-                  placeholder="1-12"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles.formField}>
-                <Text style={styles.fieldLabel}>End Month (Optional)</Text>
-                <Text style={styles.fieldHint}>Leave empty for no end date</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={endMonth}
-                  onChangeText={setEndMonth}
-                  placeholder="1-12"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  keyboardType="number-pad"
-                />
-              </View>
-              <View style={styles.navRow}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
-                  <Text style={styles.backBtnText}>← Back</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.nextBtn, !canNext4 && styles.nextBtnDisabled, { flex: 1 }]}
-                  onPress={() => setStep(5)}
-                  disabled={!canNext4}
-                >
-                  <Text style={styles.nextBtnText}>Next →</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-
-          {/* Step 5 — Details */}
-          {step === 5 && (
             <>
               <Text style={styles.stepLabel}>Details</Text>
 
@@ -511,15 +491,15 @@ export default function RecurringPaymentsScreen({
               <Text style={styles.fieldLabel}>Day of Month</Text>
               <TextInput
                 style={styles.textInput}
-                value={dayOfMonth}
-                onChangeText={setDayOfMonth}
+                value={startDay}
+                onChangeText={setStartDay}
                 placeholder="1-31"
                 placeholderTextColor="rgba(255,255,255,0.3)"
                 keyboardType="number-pad"
               />
 
               <View style={styles.navRow}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(4)}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
                   <Text style={styles.backBtnText}>← Back</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -555,9 +535,10 @@ export default function RecurringPaymentsScreen({
       ) : (
         <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
           {recurringPayments.map((payment: any) => {
-            const category =
-              typeof payment.categoryId === 'object' ? payment.categoryId : null;
-
+            const categoryObj =
+              typeof payment.categoryId === 'object'
+                ? payment.categoryId
+                : categories.find((c) => c._id === payment.categoryId) || null;
             return (
               <View key={payment._id} style={styles.paymentItem}>
                 <View style={styles.paymentInfo}>
@@ -565,13 +546,14 @@ export default function RecurringPaymentsScreen({
                     <View
                       style={[
                         styles.paymentDot,
-                        { backgroundColor: category?.color || '#666' },
+                        { backgroundColor: categoryObj?.color || '#666' },
                       ]}
                     />
-                    <Text style={styles.paymentName}>{payment.name}</Text>
+                    <Text style={styles.paymentCategory}>{categoryObj?.name || 'No category'}</Text>
                   </View>
+                  {payment.name ? <Text style={styles.paymentName}>{payment.name}</Text> : ''}
                   <Text style={styles.paymentDetails}>
-                    {getFrequencyLabel(payment.frequency || 'monthly', payment.startMonth)} • Day {payment.dayOfMonth}
+                    {getFrequencyLabel(payment.frequency || 'monthly', payment.startMonth)} {payment.frequency === 'monthly' ? `• Day ${payment.startDay}` : ''}
                   </Text>
                   <Text style={styles.paymentAmount}>
                     {formatCurrency(payment.amount, currency)}
@@ -746,6 +728,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
+  daySelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  dayChip: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  dayChipActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  dayChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  dayChipTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
   formField: {
     marginBottom: 20,
   },
@@ -875,11 +885,15 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     marginRight: 8,
   },
-  paymentName: {
+  paymentCategory: {
     fontSize: 16,
     fontWeight: '600',
     color: '#ffffff',
     flexShrink: 1,
+  },
+  paymentName: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   paymentDetails: {
     fontSize: 12,

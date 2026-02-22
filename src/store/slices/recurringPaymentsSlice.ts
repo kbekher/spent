@@ -28,8 +28,8 @@ export const addRecurringPayment = createAsyncThunk(
     name,
     amount,
     categoryId,
-    dayOfMonth,
     frequency,
+    startDay,
     startMonth,
     excludedMonths,
   }: {
@@ -37,8 +37,8 @@ export const addRecurringPayment = createAsyncThunk(
     name: string;
     amount: number;
     categoryId: string;
-    dayOfMonth: number;
     frequency?: 'monthly' | 'quarterly' | 'yearly';
+    startDay?: number;
     startMonth?: number;
     excludedMonths?: string[];
   }) => {
@@ -47,8 +47,8 @@ export const addRecurringPayment = createAsyncThunk(
       name,
       amount,
       categoryId,
-      dayOfMonth,
       frequency,
+      startDay,
       startMonth,
       excludedMonths
     );
@@ -62,8 +62,8 @@ export const editRecurringPayment = createAsyncThunk(
     name,
     amount,
     categoryId,
-    dayOfMonth,
     frequency,
+    startDay,
     startMonth,
     excludedMonths,
     isActive,
@@ -72,8 +72,8 @@ export const editRecurringPayment = createAsyncThunk(
     name: string;
     amount: number;
     categoryId: string;
-    dayOfMonth: number;
     frequency: 'monthly' | 'quarterly' | 'yearly';
+    startDay: number;
     startMonth?: number;
     excludedMonths: string[];
     isActive: boolean;
@@ -83,8 +83,8 @@ export const editRecurringPayment = createAsyncThunk(
       name,
       amount,
       categoryId,
-      dayOfMonth,
       frequency,
+      startDay,
       startMonth,
       excludedMonths,
       isActive

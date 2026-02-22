@@ -33,8 +33,8 @@ export interface RecurringPayment {
   name: string;
   amount: number;
   categoryId: string;
-  dayOfMonth: number;
   frequency: 'monthly' | 'quarterly' | 'yearly';
+  startDay: number;
   startMonth?: number;
   excludedMonths: string[];
   isActive: boolean;

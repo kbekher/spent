@@ -22,9 +22,9 @@ const recurringPaymentSchema = new Schema<IRecurringPayment>(
       type: String,
       required: true,
     },
-    dayOfMonth: {
+    startDay: {
       type: Number,
-      required: true,
+      default: 1,
       min: 1,
       max: 31,
     },

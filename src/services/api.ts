@@ -135,8 +135,8 @@ export const createRecurringPayment = async (
   name: string,
   amount: number,
   categoryId: string,
-  dayOfMonth: number,
   frequency?: 'monthly' | 'quarterly' | 'yearly',
+  startDay?: number,
   startMonth?: number,
   excludedMonths?: string[]
 ) => {
@@ -145,8 +145,8 @@ export const createRecurringPayment = async (
     name,
     amount,
     categoryId,
-    dayOfMonth,
     frequency: frequency || 'monthly',
+    startDay: startDay || 1,
     startMonth,
     excludedMonths: excludedMonths || [],
   });
@@ -158,8 +158,8 @@ export const updateRecurringPayment = async (
   name: string,
   amount: number,
   categoryId: string,
-  dayOfMonth: number,
   frequency: 'monthly' | 'quarterly' | 'yearly',
+  startDay: number,
   startMonth: number | undefined,
   excludedMonths: string[],
   isActive: boolean
@@ -168,8 +168,8 @@ export const updateRecurringPayment = async (
     name,
     amount,
     categoryId,
-    dayOfMonth,
     frequency,
+    startDay,
     startMonth,
     excludedMonths,
     isActive,

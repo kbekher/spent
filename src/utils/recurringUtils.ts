@@ -14,6 +14,20 @@ export function isRecurringActiveForMonth(
   const excludeKey = `${year}-${String(month).padStart(2, '0')}`;
   if (payment.excludedMonths.includes(excludeKey)) return false;
 
+  // Never show recurring payment before it was created
+  if (payment.createdAt) {
+    const created = new Date(payment.createdAt);
+    const createdYear = created.getFullYear();
+    const createdMonth = created.getMonth() + 1;
+    if (year * 12 + month < createdYear * 12 + createdMonth) return false;
+  }
+
+  // Never show recurring payment in the future
+  const now = new Date();
+  const nowYear = now.getFullYear();
+  const nowMonth = now.getMonth() + 1;
+  if (year * 12 + month > nowYear * 12 + nowMonth) return false;
+
   // Lifecycle: activeFrom "YYYY-MM"
   if (payment.activeFrom) {
     const [fromY, fromM] = payment.activeFrom.split('-').map(Number);
