@@ -10,6 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppSelector } from '../store/hooks';
 import { formatCurrency } from '../utils/currency';
+import {
+  filterExpensesByDateRange,
+  calculateExpenseTotal,
+  aggregateByCategory,
+} from '../utils/expenseCalculations';
+import { getRecurringTotalForPeriod } from '../utils/recurringUtils';
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 interface OverviewScreenProps {
   navigation: any;
@@ -24,84 +32,89 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
   const displayName = user?.displayName || user?.username || '';
   const currency = user?.currency || 'EUR';
 
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const now = new Date();
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
   const [viewMode, setViewMode] = useState<'month' | 'year'>('month');
 
-  // // Compute stats from Redux store data
-  // const stats = useMemo(() => {
-  //   const startDate =
-  //     viewMode === 'month'
-  //       ? new Date(selectedYear, selectedMonth - 1, 1)
-  //       : new Date(selectedYear, 0, 1);
-  //   const endDate =
-  //     viewMode === 'month'
-  //       ? new Date(selectedYear, selectedMonth, 0, 23, 59, 59)
-  //       : new Date(selectedYear, 11, 31, 23, 59, 59);
+  // Navigation functions
+  const prevPeriod = () => {
+    if (viewMode === 'month') {
+      if (selectedMonth === 1) {
+        setSelectedMonth(12);
+        setSelectedYear((y) => y - 1);
+      } else {
+        setSelectedMonth((m) => m - 1);
+      }
+    } else {
+      setSelectedYear((y) => y - 1);
+    }
+  };
 
-  // Filter expenses for selected month
-  const monthExpenses = useMemo(() => {
-    const start = new Date(selectedYear, selectedMonth - 1, 1);
-    const end = new Date(selectedYear, selectedMonth, 0, 23, 59, 59);
-    return expenses.filter((exp) => {
-      const d = new Date(exp.date);
-      return d >= start && d <= end;
-    });
-  }, [expenses, selectedYear, selectedMonth]);
+  const nextPeriod = () => {
+    if (viewMode === 'month') {
+      const next = new Date(selectedYear, selectedMonth, 1);
+      if (next > now) return;
+      if (selectedMonth === 12) {
+        setSelectedMonth(1);
+        setSelectedYear((y) => y + 1);
+      } else {
+        setSelectedMonth((m) => m + 1);
+      }
+    } else {
+      if (selectedYear >= now.getFullYear()) return;
+      setSelectedYear((y) => y + 1);
+    }
+  };
+
+  const isCurrentPeriod = useMemo(() => {
+    if (viewMode === 'month') {
+      return selectedYear === now.getFullYear() && selectedMonth === now.getMonth() + 1;
+    } else {
+      return selectedYear === now.getFullYear();
+    }
+  }, [selectedYear, selectedMonth, viewMode, now]);
+
+  // Calculate date range based on view mode
+  const dateRange = useMemo(() => {
+    if (viewMode === 'month') {
+      return {
+        start: new Date(selectedYear, selectedMonth - 1, 1),
+        end: new Date(selectedYear, selectedMonth, 0, 23, 59, 59),
+      };
+    } else {
+      return {
+        start: new Date(selectedYear, 0, 1),
+        end: new Date(selectedYear, 11, 31, 23, 59, 59),
+      };
+    }
+  }, [selectedYear, selectedMonth, viewMode]);
+
+  // Filter expenses for selected period
+  const periodExpenses = useMemo(() => {
+    return filterExpensesByDateRange(expenses, dateRange.start, dateRange.end);
+  }, [expenses, dateRange.start, dateRange.end]);
 
   const expenseTotal = useMemo(
-    () => monthExpenses.reduce((s, e) => s + e.amount, 0),
-    [monthExpenses]
+    () => calculateExpenseTotal(periodExpenses),
+    [periodExpenses]
   );
 
   // Category breakdown
   const byCategory = useMemo(() => {
-    const map: Record<string, { name: string; color: string; total: number }> = {};
-    monthExpenses.forEach((exp) => {
-      const cat =
-        typeof exp.categoryId === 'object'
-          ? (exp.categoryId as any)
-          : categories.find((c) => c._id === exp.categoryId) || { name: 'Unknown', color: '#888' };
-      const key = cat.name;
-      if (!map[key]) map[key] = { name: cat.name, color: cat.color, total: 0 };
-      map[key].total += exp.amount;
-    });
-    return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [monthExpenses, categories]);
+    return aggregateByCategory(periodExpenses, categories);
+  }, [periodExpenses, categories]);
 
-  const getRecurringTotal = (year: number, month: number) => {
-    const excludeMonthKey = `${year}-${String(month).padStart(2, '0')}`;
-
-    return recurringPayments
-      .filter((p) => {
-        if (!p.isActive || p.excludedMonths.includes(excludeMonthKey)) {
-          return false;
-        }
-
-        const frequency = p.frequency || 'monthly';
-
-        if (frequency === 'monthly') {
-          return true;
-        }
-
-        const startMonth = p.startMonth || 1;
-
-        if (frequency === 'yearly') {
-          return month === startMonth;
-        }
-
-        if (frequency === 'quarterly') {
-          let monthsSinceStart = month - startMonth;
-          if (monthsSinceStart < 0) {
-            monthsSinceStart += 12;
-          }
-          return monthsSinceStart % 3 === 0;
-        }
-
-        return false;
-      })
-      .reduce((sum, p) => sum + p.amount, 0);
-  };
+  // Recurring total with past-only constraint
+  const recurringTotal = useMemo(() => {
+    return getRecurringTotalForPeriod(
+      recurringPayments,
+      selectedYear,
+      selectedMonth,
+      viewMode,
+      now
+    );
+  }, [recurringPayments, selectedYear, selectedMonth, viewMode]);
 
   const getRecurringCount = () => {
     const currentDate = new Date();
@@ -138,12 +151,13 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
     }).length;
   };
 
-  const getMonthName = (month: number) => {
-    const date = new Date(2000, month - 1, 1);
-    return date.toLocaleString('en-US', { month: 'long' });
+  const getPeriodLabel = () => {
+    if (viewMode === 'month') {
+      return `${MONTH_SHORT[selectedMonth - 1]} ${selectedYear}`;
+    } else {
+      return `${selectedYear}`;
+    }
   };
-
-  const recurringTotal = getRecurringTotal(selectedYear, selectedMonth);
 
   if (expensesLoading && expenses.length === 0) {
     return (
@@ -207,22 +221,24 @@ export default function OverviewScreen({ navigation }: OverviewScreenProps) {
             </View>
           </View>
 
-          {/* Date Selectors - Simplified for now */}
+          {/* Date Selector with Arrows */}
           <View style={styles.dateSelectorRow}>
-            {viewMode === 'month' ? (
-              <>
-                <TouchableOpacity style={styles.dateBtn}>
-                  <Text style={styles.dateBtnText}>{getMonthName(selectedMonth)}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.dateBtn}>
-                  <Text style={styles.dateBtnText}>{selectedYear}</Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              <TouchableOpacity style={[styles.dateBtn, { flex: 1 }]}>
-                <Text style={styles.dateBtnText}>{selectedYear}</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity 
+              style={styles.arrowBtn}
+              onPress={prevPeriod}
+            >
+              <Text style={styles.arrowText}>◀</Text>
+            </TouchableOpacity>
+            <Text style={styles.periodLabel}>
+              {getPeriodLabel()}
+            </Text>
+            <TouchableOpacity
+              style={[styles.arrowBtn, isCurrentPeriod && styles.arrowBtnDisabled]}
+              onPress={nextPeriod}
+              disabled={isCurrentPeriod}
+            >
+              <Text style={[styles.arrowText, isCurrentPeriod && styles.arrowTextDisabled]}>▶</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -415,22 +431,37 @@ const styles = StyleSheet.create({
   },
   dateSelectorRow: {
     flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 20,
     width: '100%',
-  },
-  dateBtn: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.06)',
     paddingVertical: 14,
     paddingHorizontal: 16,
     borderRadius: 48,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+  },
+  arrowBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  dateBtnText: {
-    fontSize: 15,
-    fontWeight: '500',
+  arrowBtnDisabled: {
+    opacity: 0.3,
+  },
+  arrowText: {
+    fontSize: 14,
     color: '#000000',
+  },
+  arrowTextDisabled: {
+    color: 'rgba(0, 0, 0, 0.3)',
+  },
+  periodLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000000',
+    minWidth: 100,
+    textAlign: 'center',
   },
   statsRow: {
     flexDirection: 'column',

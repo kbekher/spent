@@ -16,7 +16,6 @@ import LoginScreen from '../screens/LoginScreen';
 import OverviewScreen from '../screens/OverviewScreen';
 import AddExpenseScreen from '../screens/AddExpenseScreen';
 import RecurringPaymentsScreen from '../screens/RecurringPaymentsScreen';
-import ReportsScreen from '../screens/ReportsScreen';
 import EditExpenseScreen from '../screens/EditExpenseScreen';
 import AccountScreen from '../screens/AccountScreen';
 import RecentExpensesScreen from '../screens/RecentExpensesScreen';
@@ -60,10 +59,6 @@ const Tab = createBottomTabNavigator();
 function MainTabs({ navigation }: any) {
   const dispatch = useAppDispatch();
 
-  const handleAccountPress = () => {
-    navigation.navigate('Account');
-  };
-
   const handleLogoutPress = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
@@ -100,7 +95,6 @@ function MainTabs({ navigation }: any) {
           color: '#000000',
         },
         headerTintColor: '#000000',
-        headerLeft: () => <HeaderIconButton icon="person-circle-outline" onPress={handleAccountPress} style={{ marginLeft: 12 }} />,
       }}
     >
       <Tab.Screen
@@ -159,15 +153,15 @@ function MainTabs({ navigation }: any) {
         }}
       />
       <Tab.Screen
-        name="Reports"
-        component={ReportsScreen}
+        name="Account"
+        component={AccountScreen}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <View style={[styles.tabButton, focused && styles.tabButtonActive]}>
-              <Ionicons name="bar-chart-outline" size={24} color={focused ? '#000000' : '#ffffff'} />
+              <Ionicons name="person-circle-outline" size={24} color={focused ? '#000000' : '#ffffff'} />
             </View>
           ),
-          title: 'Reports',
+          title: 'Account',
         }}
       />
     </Tab.Navigator>

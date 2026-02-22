@@ -71,3 +71,45 @@ export function getRecurringTotalForYear(
   }
   return total;
 }
+
+/**
+ * Calculate recurring total for a period with past-only constraint.
+ * Only includes recurring payments for months that have occurred (not future months).
+ * 
+ * @param payments - Array of recurring payments
+ * @param year - Selected year
+ * @param month - Selected month (only used when viewMode is 'month')
+ * @param viewMode - 'month' or 'year'
+ * @param currentDate - Current date (defaults to new Date())
+ * @returns Total amount of recurring payments for the period
+ */
+export function getRecurringTotalForPeriod(
+  payments: RecurringPayment[],
+  year: number,
+  month: number,
+  viewMode: 'month' | 'year',
+  currentDate: Date = new Date()
+): number {
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth() + 1;
+
+  if (viewMode === 'month') {
+    // For month view: only include if the month has occurred
+    if (year > currentYear || (year === currentYear && month > currentMonth)) {
+      return 0; // Future month, no recurring payments
+    }
+    return getRecurringTotalForMonth(payments, year, month);
+  } else {
+    // For year view: sum only months that have occurred
+    if (year > currentYear) {
+      return 0; // Future year, no recurring payments
+    }
+
+    const endMonth = year === currentYear ? currentMonth : 12;
+    let total = 0;
+    for (let m = 1; m <= endMonth; m++) {
+      total += getRecurringTotalForMonth(payments, year, m);
+    }
+    return total;
+  }
+}
