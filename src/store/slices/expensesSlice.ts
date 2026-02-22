@@ -80,18 +80,34 @@ export const createExpenseFromRecurring = createAsyncThunk(
     };
     year: number;
     month: number;
-  }) => {
-    // Get valid day for the month (handles edge cases like Feb 30 -> Feb 28/29)
-    const validDay = getValidDayForMonth(year, month, recurringPayment.startDay);
-    const expenseDate = new Date(year, month - 1, validDay);
-    return await api.createExpense(
-      recurringPayment.userId,
-      recurringPayment.amount,
-      recurringPayment.categoryId,
-      expenseDate,
-      recurringPayment.name,
-      recurringPayment._id
-    );
+  }, { rejectWithValue }) => {
+    try {
+      // Get valid day for the month (handles edge cases like Feb 30 -> Feb 28/29)
+      const validDay = getValidDayForMonth(year, month, recurringPayment.startDay);
+      const expenseDate = new Date(year, month - 1, validDay);
+      
+      console.log(`[createExpenseFromRecurring] Creating expense for template ${recurringPayment._id}, date: ${expenseDate.toISOString()}`);
+      
+      const expense = await api.createExpense(
+        recurringPayment.userId,
+        recurringPayment.amount,
+        recurringPayment.categoryId,
+        expenseDate,
+        recurringPayment.name,
+        recurringPayment._id
+      );
+      
+      console.log(`[createExpenseFromRecurring] Created expense ${expense._id}`);
+      return expense;
+    } catch (error: any) {
+      // If expense already exists (409 or specific error), return null to skip
+      if (error.response?.status === 409 || error.message?.includes('duplicate') || error.message?.includes('already exists')) {
+        console.log(`[createExpenseFromRecurring] Expense already exists, skipping`);
+        return null;
+      }
+      console.error(`[createExpenseFromRecurring] Error:`, error);
+      return rejectWithValue(error.message || 'Failed to create expense from recurring payment');
+    }
   }
 );
 
@@ -168,6 +184,18 @@ const expensesSlice = createSlice({
         } else {
           state.items.unshift(action.payload);
         }
+      })
+      // Create expense from recurring
+      .addCase(createExpenseFromRecurring.fulfilled, (state, action) => {
+        // Handle null return (duplicate expense - already exists)
+        if (action.payload) {
+          // Check if expense already exists (idempotency)
+          const existingIndex = state.items.findIndex((exp) => exp._id === action.payload._id);
+          if (existingIndex === -1) {
+            state.items.unshift(action.payload);
+          }
+        }
+        // If null, expense already exists - silently skip (idempotent)
       })
       // Update expense
       .addCase(updateExpense.fulfilled, (state, action) => {

@@ -26,7 +26,6 @@ import CategoryChipSelector from '../components/CategoryChipSelector';
 import { Ionicons } from '@expo/vector-icons';
 import { getRandomCategoryColor } from '../utils/categoryColors';
 import { addCategory, optimisticAddCategory, optimisticDeleteCategory } from '../store/slices/categoriesSlice';
-import { getValidDayForMonth } from '../utils/recurringUtils';
 
 interface RecurringPaymentsScreenProps {
   navigation: any;
@@ -161,10 +160,9 @@ export default function RecurringPaymentsScreen({
       return;
     }
 
-    // Normalize day for the current month (handle edge cases like Feb 30 -> Feb 28/29)
-    const currentYear = new Date().getFullYear();
-    const currentMonth = new Date().getMonth() + 1;
-    const validDay = getValidDayForMonth(currentYear, currentMonth, dayNum);
+    // Note: We save the user's selected day as-is (e.g., 31)
+    // Day normalization happens when materializing expenses for specific months
+    // (e.g., day 31 in February will become Feb 28/29 when materializing)
 
     if (loading) return;
     setLoading(true);
@@ -181,7 +179,7 @@ export default function RecurringPaymentsScreen({
             amount: amountNum,
             categoryId,
             frequency,
-            startDay: validDay,
+            startDay: dayNum,
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
             excludedMonths: payment.excludedMonths || [],
             isActive: payment.isActive,
@@ -195,7 +193,7 @@ export default function RecurringPaymentsScreen({
             amount: amountNum,
             categoryId,
             frequency,
-            startDay: validDay,
+            startDay: dayNum,
             startMonth: (frequency === 'quarterly' || frequency === 'yearly') ? parseInt(startMonth) : undefined,
           })
         ).unwrap();
