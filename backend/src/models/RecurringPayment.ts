@@ -10,7 +10,6 @@ const recurringPaymentSchema = new Schema<IRecurringPayment>(
     },
     name: {
       type: String,
-      required: true,
       trim: true,
     },
     amount: {

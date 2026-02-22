@@ -488,16 +488,6 @@ export default function RecurringPaymentsScreen({
                 placeholderTextColor="rgba(255,255,255,0.3)"
               />
 
-              <Text style={styles.fieldLabel}>Day of Month</Text>
-              <TextInput
-                style={styles.textInput}
-                value={startDay}
-                onChangeText={setStartDay}
-                placeholder="1-31"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                keyboardType="number-pad"
-              />
-
               <View style={styles.navRow}>
                 <TouchableOpacity style={styles.backBtn} onPress={() => setStep(3)}>
                   <Text style={styles.backBtnText}>← Back</Text>
