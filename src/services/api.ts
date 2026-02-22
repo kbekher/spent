@@ -42,6 +42,7 @@ export const updateUserSettings = async (
   return response.data;
 };
 
+
 // Category API
 export const getCategories = async (userId: string) => {
   const response = await api.get(`/categories/user/${userId}`);
@@ -113,7 +114,7 @@ export const createExpense = async (
 
 export const updateExpense = async (
   id: string,
-  data: { amount?: number; categoryId?: string; description?: string; date?: Date }
+  data: { amount?: number; categoryId?: string; description?: string }
 ) => {
   const response = await api.put(`/expenses/${id}`, data);
   return response.data;

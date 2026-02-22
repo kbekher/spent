@@ -72,7 +72,7 @@ export default function RecurringPaymentsScreen({
     setStep(1);
     setEditingId(null);
     setAmount('');
-    setCategoryId(categories[0]?._id || '');
+    setCategoryId('');
     setFrequency('monthly');
     setStartMonth('1');
     setPaymentName('');

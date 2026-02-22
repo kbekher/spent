@@ -38,7 +38,6 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
 
   const isRecurringInstance = !!expense?.recurringTemplateId;
 
-  const [step, setStep] = useState(1);
   const [amount, setAmount] = useState(expense?.amount?.toString() || '');
   const [categoryId, setCategoryId] = useState(
     typeof expense?.categoryId === 'object'
@@ -46,9 +45,7 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
       : expense?.categoryId || ''
   );
   const [description, setDescription] = useState(expense?.description || '');
-  const [date, setDate] = useState(
-    expense?.date ? new Date(expense.date) : new Date()
-  );
+
   const [loading, setLoading] = useState(false);
 
   if (!expense) {
@@ -86,7 +83,6 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
         amount: amountNum,
         categoryId,
         description: description || undefined,
-        date: date.toISOString(),
       })
     );
 
@@ -97,7 +93,6 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
           amount: amountNum,
           categoryId,
           description: description || undefined,
-          date: date,
         })
       ).unwrap();
       navigation.goBack();
@@ -109,155 +104,72 @@ export default function EditExpenseScreen({ route, navigation }: EditExpenseScre
   };
 
   const selectedCategory = categories.find((c) => c._id === categoryId);
-  const canNext1 = parseFloat(amount) > 0;
-  const canNext2 = !!categoryId;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Step indicator */}
-      <View style={styles.stepIndicator}>
-        {[1, 2, 3].map((s) => (
-          <View key={s} style={[styles.stepDot, s === step && styles.stepDotActive]} />
-        ))}
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Step 1 — Amount */}
-        {step === 1 && (
-          <>
-            <View style={styles.amountDisplay}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <Text style={styles.amountText}>{amount || '0'}</Text>
-            </View>
-            <View style={styles.keypad}>
-              {[['1','2','3'],['4','5','6'],['7','8','9']].map((row, ri) => (
-                <View key={ri} style={styles.keypadRow}>
-                  {row.map((n) => (
-                    <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
-                      <Text style={styles.keyText}>{n}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+        {/* Amount — keep keypad UX */}
+        <View style={styles.amountDisplay}>
+          <Text style={styles.currencySymbol}>$</Text>
+          <Text style={styles.amountText}>{amount || '0'}</Text>
+        </View>
+        <View style={styles.keypad}>
+          {[['1', '2', '3'], ['4', '5', '6'], ['7', '8', '9']].map((row, ri) => (
+            <View key={ri} style={styles.keypadRow}>
+              {row.map((n) => (
+                <TouchableOpacity key={n} style={styles.key} onPress={() => handleNumberPress(n)}>
+                  <Text style={styles.keyText}>{n}</Text>
+                </TouchableOpacity>
               ))}
-              <View style={styles.keypadRow}>
-                <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('.')}>
-                  <Text style={styles.keyText}>.</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('0')}>
-                  <Text style={styles.keyText}>0</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.key} onPress={handleBackspace}>
-                  <Ionicons name="backspace-outline" size={28} color="#ffffff" />
-                </TouchableOpacity>
-              </View>
             </View>
-            <TouchableOpacity
-              style={[styles.nextBtn, !canNext1 && styles.nextBtnDisabled]}
-              onPress={() => setStep(2)}
-              disabled={!canNext1}
-            >
-              <Text style={styles.nextBtnText}>Next →</Text>
+          ))}
+          <View style={styles.keypadRow}>
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('.')}>
+              <Text style={styles.keyText}>.</Text>
             </TouchableOpacity>
-          </>
-        )}
+            <TouchableOpacity style={styles.key} onPress={() => handleNumberPress('0')}>
+              <Text style={styles.keyText}>0</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.key} onPress={handleBackspace}>
+              <Ionicons name="backspace-outline" size={28} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        {/* Step 2 — Category */}
-        {step === 2 && (
-          <>
-            <Text style={styles.stepLabel}>Select Category</Text>
-            <CategoryChipSelector
-              categories={categories}
-              selectedId={categoryId}
-              onSelect={(id) => setCategoryId(id)}
-            />
-            <View style={styles.navRow}>
-              <TouchableOpacity style={styles.backBtn} onPress={() => setStep(1)}>
-                <Text style={styles.backBtnText}>← Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.nextBtn, !canNext2 && styles.nextBtnDisabled, { flex: 1 }]}
-                onPress={() => setStep(3)}
-                disabled={!canNext2}
-              >
-                <Text style={styles.nextBtnText}>Next →</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+        {/* Category */}
+        <Text style={styles.fieldLabel}>Category</Text>
+        <CategoryChipSelector
+          categories={categories}
+          selectedId={categoryId}
+          onSelect={(id) => setCategoryId(id)}
+        />
 
-        {/* Step 3 — Details */}
-        {step === 3 && (
-          <>
-            <Text style={styles.stepLabel}>Edit Details</Text>
+        {/* Description */}
+        <Text style={styles.fieldLabel}>Description (optional)</Text>
+        <TextInput
+          style={styles.textInput}
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Add description"
+          placeholderTextColor="rgba(255,255,255,0.3)"
+        />
 
-            {selectedCategory && (
-              <View style={styles.summaryRow}>
-                <View style={[styles.summaryDot, { backgroundColor: selectedCategory.color }]} />
-                <Text style={[styles.summaryText, { color: selectedCategory.color }]}>
-                  {selectedCategory.name}
-                </Text>
-                <Text style={styles.summaryAmount}>${amount}</Text>
-              </View>
-            )}
-
-            <TextInput
-              style={styles.textInput}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Description (optional)"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-            />
-
-            <Text style={styles.fieldLabel}>Date</Text>
-            {isRecurringInstance ? (
-              <View style={styles.lockedField} pointerEvents="none">
-                <Text style={styles.lockedFieldText}>
-                  {date.toISOString().slice(0, 10)}
-                </Text>
-                <Text style={styles.lockedFieldHint}>Date locked (recurring payment)</Text>
-              </View>
-            ) : (
-              <TextInput
-                style={styles.textInput}
-                value={date.toISOString().slice(0, 10)}
-                onChangeText={(text) => {
-                  // Validate date format YYYY-MM-DD
-                  if (/^\d{4}-\d{2}-\d{2}$/.test(text) || text === '') {
-                    const newDate = new Date(text);
-                    if (!isNaN(newDate.getTime())) {
-                      setDate(newDate);
-                    }
-                  }
-                }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                keyboardType="numeric"
-                maxLength={10}
-              />
-            )}
-
-            <View style={styles.navRow}>
-              <TouchableOpacity style={styles.backBtn} onPress={() => setStep(2)}>
-                <Text style={styles.backBtnText}>← Back</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitBtn, loading && styles.submitBtnDisabled, { flex: 1 }]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" />
-                ) : (
-                  <Text style={styles.submitBtnText}>Save Changes</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
+        {/* Save button */}
+        <TouchableOpacity
+          style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+          onPress={handleSubmit}
+          disabled={loading || !parseFloat(amount) || !categoryId}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.submitBtnText}>Save Changes</Text>
+          )}
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

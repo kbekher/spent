@@ -104,7 +104,7 @@ router.post('/', checkJwt, async (req: Request, res: Response) => {
 // Update an expense
 router.put('/:id', checkJwt, async (req: Request, res: Response) => {
   try {
-    const { amount, categoryId, description, date } = req.body;
+    const { amount, categoryId, description } = req.body;
 
     const expense = await Expense.findByIdAndUpdate(
       req.params.id,
@@ -112,7 +112,6 @@ router.put('/:id', checkJwt, async (req: Request, res: Response) => {
         ...(amount !== undefined && { amount }),
         ...(categoryId !== undefined && { categoryId }),
         ...(description !== undefined && { description }),
-        ...(date !== undefined && { date: new Date(date) }),
       },
       { new: true }
     );

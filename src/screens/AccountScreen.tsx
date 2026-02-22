@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { logoutUser } from '../store/slices/authSlice';
-import * as api from '../services/api';
+import { updateUserSettings } from '../store/slices/authSlice';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
@@ -44,11 +44,11 @@ export default function AccountScreen() {
     setSaved(false);
 
     try {
-      await api.updateUserSettings(user._id, {
+      await dispatch(updateUserSettings({
+        userId: user._id,
         displayName: displayName.trim(),
         currency,
-      });
-
+      })).unwrap();
       setSaved(true);
       Alert.alert('Success', 'Settings saved successfully!');
       setTimeout(() => setSaved(false), 3000);
@@ -75,88 +75,88 @@ export default function AccountScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-    <ScrollView
-      style={styles.scrollView}
-      contentContainerStyle={styles.contentContainer}
-      keyboardShouldPersistTaps="handled"
-    >
-      <View style={styles.formCard}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionDot} />
-          <Text style={styles.sectionTitle}>Account Settings</Text>
-          {saved && (
-            <View style={styles.savedIndicator}>
-              <Text style={styles.savedText}>Saved ✓</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.formField}>
-            <Text style={styles.label}>Display Name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="Your name"
-              placeholderTextColor="rgba(255, 255, 255, 0.3)"
-            />
-          </View>
-
-          <View style={styles.formField}>
-            <Text style={styles.label}>Currency</Text>
-            <View style={styles.currencyChipsWrap}>
-              {CURRENCIES.map((curr) => {
-                const isSelected = currency === curr.code;
-                return (
-                  <TouchableOpacity
-                    key={curr.code}
-                    style={[
-                      styles.currencyChip,
-                      isSelected && styles.currencyChipActive,
-                    ]}
-                    onPress={() => setCurrency(curr.code)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.currencyChipText,
-                        isSelected && styles.currencyChipTextActive,
-                      ]}
-                    >
-                      {curr.symbol} {curr.code}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.formField}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.readOnlyField}>
-              <Text style={styles.readOnlyText}>{user?.email || 'N/A'}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.saveButton, loading && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={loading}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        keyboardShouldPersistTaps="handled"
       >
-        {loading ? (
-          <ActivityIndicator color="#ffffff" />
-        ) : (
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        )}
-      </TouchableOpacity>
+        <View style={styles.formCard}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionDot} />
+            <Text style={styles.sectionTitle}>Account Settings</Text>
+            {saved && (
+              <View style={styles.savedIndicator}>
+                <Text style={styles.savedText}>Saved ✓</Text>
+              </View>
+            )}
+          </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
-    </ScrollView>
+          <View style={styles.form}>
+            <View style={styles.formField}>
+              <Text style={styles.label}>Display Name</Text>
+              <TextInput
+                style={styles.textInput}
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Your name"
+                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+              />
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.label}>Currency</Text>
+              <View style={styles.currencyChipsWrap}>
+                {CURRENCIES.map((curr) => {
+                  const isSelected = currency === curr.code;
+                  return (
+                    <TouchableOpacity
+                      key={curr.code}
+                      style={[
+                        styles.currencyChip,
+                        isSelected && styles.currencyChipActive,
+                      ]}
+                      onPress={() => setCurrency(curr.code)}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.currencyChipText,
+                          isSelected && styles.currencyChipTextActive,
+                        ]}
+                      >
+                        {curr.symbol} {curr.code}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.formField}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyText}>{user?.email || 'N/A'}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }

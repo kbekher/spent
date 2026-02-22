@@ -99,15 +99,13 @@ export const updateExpense = createAsyncThunk(
     amount,
     categoryId,
     description,
-    date,
   }: {
     id: string;
     amount?: number;
     categoryId?: string;
     description?: string;
-    date?: Date;
   }) => {
-    return await api.updateExpense(id, { amount, categoryId, description, date });
+    return await api.updateExpense(id, { amount, categoryId, description });
   }
 );
 

@@ -1,7 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { storage } from '../../utils/storage';
 import { User, AuthState } from '../../types';
-import { syncUser } from '../../services/api';
+import { syncUser, updateUserSettings as apiUpdateUserSettings } from '../../services/api';
+
 
 const initialState: AuthState = {
   user: null,
@@ -16,14 +17,14 @@ export const initializeAuth = createAsyncThunk(
   async () => {
     const token = await storage.getItem('accessToken');
     const userJson = await storage.getItem('user');
-    
+
     if (token && userJson) {
       return {
         accessToken: token,
         user: JSON.parse(userJson) as User,
       };
     }
-    
+
     return null;
   }
 );
@@ -33,13 +34,13 @@ export const loginUser = createAsyncThunk(
   async ({ accessToken, email, username }: { accessToken: string; email: string; username: string }) => {
     // Store token
     await storage.setItem('accessToken', accessToken);
-    
+
     // Sync user with backend
     const user = await syncUser(email, username);
-    
+
     // Store user data
     await storage.setItem('user', JSON.stringify(user));
-    
+
     return { accessToken, user };
   }
 );
@@ -49,6 +50,15 @@ export const logoutUser = createAsyncThunk(
   async () => {
     await storage.removeItem('accessToken');
     await storage.removeItem('user');
+  }
+);
+
+export const updateUserSettings = createAsyncThunk(
+  'auth/updateSettings',
+  async ({ userId, displayName, currency }: { userId: string; displayName: string; currency: string }) => {
+    const updated = await apiUpdateUserSettings(userId, { displayName, currency });
+    await storage.setItem('user', JSON.stringify(updated));
+    return updated;
   }
 );
 
@@ -96,6 +106,11 @@ const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.error = null;
+      })
+      .addCase(updateUserSettings.fulfilled, (state, action) => {
+        if (state.user) {
+          state.user = { ...state.user, ...action.payload };
+        }
       });
   },
 });
