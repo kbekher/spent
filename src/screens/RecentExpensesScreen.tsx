@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -57,6 +57,22 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [materializing, setMaterializing] = useState(false);
 
+  // Track processed months to prevent re-materialization
+  const processedMonthRef = useRef<string | null>(null);
+  const isMaterializingRef = useRef(false);
+  // Store latest expenses in ref to avoid stale closure
+  const expensesRef = useRef(expenses);
+  
+  // Update ref whenever expenses change
+  React.useEffect(() => {
+    expensesRef.current = expenses;
+  }, [expenses]);
+  
+  // Reset processed month when month/year changes
+  React.useEffect(() => {
+    processedMonthRef.current = null;
+  }, [selectedYear, selectedMonth]);
+
   // Filter expenses based on selected date
   const startDate =
     viewMode === 'month'
@@ -70,18 +86,36 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
   // Materialize recurring payments as expenses for the selected month
   useFocusEffect(
     useCallback(() => {
-      if (viewMode !== 'month' || !user?._id) return;
+      if (viewMode !== 'month' || !user?._id) {
+        processedMonthRef.current = null;
+        return;
+      }
+
+      const monthKey = `${selectedYear}-${selectedMonth}`;
+      
+      // Skip if already processed this month or currently materializing
+      if (processedMonthRef.current === monthKey || isMaterializingRef.current) {
+        return;
+      }
 
       const materializeRecurringPayments = async () => {
+        // Prevent concurrent materialization
+        if (isMaterializingRef.current) return;
+        
+        isMaterializingRef.current = true;
         setMaterializing(true);
+        
         try {
+          // Get current expenses from ref (always latest value, avoids stale closure)
+          const currentExpenses = expensesRef.current;
+          
           // Get active recurring payments for this month
           const activeRecurring = recurringPayments.filter((p) =>
             isRecurringActiveForMonth(p, selectedYear, selectedMonth)
           );
 
           // Check which ones don't have expenses yet
-          const expensesForMonth = expenses.filter((exp) => {
+          const expensesForMonth = currentExpenses.filter((exp) => {
             const expDate = new Date(exp.date);
             return (
               expDate >= startDate &&
@@ -106,7 +140,7 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
                     amount: p.amount,
                     categoryId: p.categoryId,
                     name: p.name,
-                    dayOfMonth: p.dayOfMonth,
+                    startDay: p.startDay,
                   },
                   year: selectedYear,
                   month: selectedMonth,
@@ -116,13 +150,19 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
 
           await Promise.all(materializePromises);
 
-          // Refresh expenses list
+          // Refresh expenses list only if we created new expenses
           if (materializePromises.length > 0) {
             await dispatch(fetchExpenses({ userId: user._id })).unwrap();
           }
+          
+          // Mark this month as processed
+          processedMonthRef.current = monthKey;
         } catch (error) {
           console.error('Failed to materialize recurring payments:', error);
+          // Reset on error so it can retry
+          processedMonthRef.current = null;
         } finally {
+          isMaterializingRef.current = false;
           setMaterializing(false);
         }
       };
@@ -133,11 +173,12 @@ export default function RecentExpensesScreen({ route }: RecentExpensesScreenProp
       selectedYear,
       selectedMonth,
       recurringPayments,
-      expenses,
       user?._id,
       dispatch,
       startDate,
       endDate,
+      // Note: expenses is intentionally NOT in dependencies to prevent infinite loop
+      // We read it directly inside the callback when needed
     ])
   );
 
